@@ -103,7 +103,8 @@ https://<username>.github.io/<repository-name>/
 | キー | 値 |
 |------|-----|
 | `S3_BUCKET_NAME` | `sakuraqa-food-review-results`（作成したバケット名） |
-| `AWS_REGION` | `ap-northeast-1` |
+
+**注意**: `AWS_REGION`は予約済み環境変数のため、手動で設定する必要はありません。Lambda関数は自動的に実行中のリージョンを取得します。
 
 ### 3.4 IAMロールの権限設定
 
@@ -125,6 +126,13 @@ Lambda関数がS3にアクセスできるよう権限を設定します。
                 "s3:PutObject"
             ],
             "Resource": "arn:aws:s3:::sakuraqa-food-review-results/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": "arn:aws:s3:::sakuraqa-food-review-results"
         }
     ]
 }
@@ -164,13 +172,29 @@ Lambda関数をHTTP APIとして公開します。
 
 1. 作成したAPIを選択
 2. 左メニューから **CORS** をクリック
-3. 以下を設定：
+3. **Configure CORS** をクリック
+4. 以下のように設定：
 
-- **Access-Control-Allow-Origin**: `*`（本番環境では`https://<username>.github.io`に制限推奨）
-- **Access-Control-Allow-Methods**: `POST, OPTIONS`
-- **Access-Control-Allow-Headers**: `Content-Type`
+   - **Access-Control-Allow-Origin**: `*`
+     - ローカルテストとGitHub Pagesの両方で使うため、まずは`*`に設定
+     - 本番環境では`https://<username>.github.io`に制限推奨
 
-4. **保存** をクリック
+   - **Access-Control-Allow-Headers**:
+     - `content-type` を入力（小文字で入力）
+
+   - **Access-Control-Allow-Methods**:
+     - `POST` にチェック
+     - `OPTIONS` にチェック
+
+   - **Access-Control-Expose-Headers**: （空欄でOK）
+
+   - **Access-Control-Max-Age**: `300`（オプション、デフォルトでOK）
+
+   - **Access-Control-Allow-Credentials**: チェックなし
+
+5. **保存** をクリック
+
+**重要**: CORS設定を保存すると、API Gatewayが自動的にOPTIONSメソッドを処理するようになります。Lambda関数のOPTIONSハンドリングコードは使用されません。
 
 ### 4.3 APIエンドポイントURLを控える
 
@@ -296,13 +320,32 @@ GitHub Pagesのデプロイが完了したら、URLにアクセスして同様�
 
 ### CORSエラーが発生する場合
 
-**症状**: コンソールに「Access to fetch at '...' from origin '...' has been blocked by CORS policy」
+**症状**: コンソールに「Access to fetch at '...' from origin '...' has been blocked by CORS policy: Response to preflight request doesn't pass access control check」
 
 **解決策**:
-1. API GatewayのCORS設定を確認
-2. `Access-Control-Allow-Origin`に正しいオリジンが含まれているか確認
-3. `Access-Control-Allow-Methods`に`POST, OPTIONS`が含まれているか確認
-4. ブラウザのキャッシュをクリアして再試行
+1. **API GatewayのCORS設定を確認**
+   - AWS Console → API Gateway → ReviewAPI → CORS
+   - `Access-Control-Allow-Origin`が`*`または`http://127.0.0.1:8000`を含むか確認
+   - `Access-Control-Allow-Methods`に`POST`と`OPTIONS`が両方選択されているか確認
+   - `Access-Control-Allow-Headers`に`content-type`が含まれているか確認
+
+2. **CORS設定を再保存**
+   - CORS設定画面で何も変更せず、もう一度「保存」をクリック
+   - 設定が正しく反映されるまで1-2分待つ
+
+3. **curlでOPTIONSリクエストをテスト**（ターミナルで実行）:
+   ```bash
+   curl -X OPTIONS "https://YOUR_API_ID.execute-api.ap-northeast-1.amazonaws.com/review" \
+     -H "Origin: http://127.0.0.1:8000" \
+     -H "Access-Control-Request-Method: POST" \
+     -i
+   ```
+   - レスポンスヘッダーに`access-control-allow-origin`が含まれているか確認
+
+4. **ブラウザのキャッシュをクリア**して再試行
+   - ハードリロード: Cmd + Shift + R (Mac) / Ctrl + Shift + R (Windows)
+
+5. **別のブラウザまたはシークレットモード**で試す
 
 ### API呼び出しが失敗する場合
 
