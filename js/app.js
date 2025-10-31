@@ -83,8 +83,8 @@ const QuizApp = {
                 throw new Error(`カテゴリ「${this.category}」の問題が見つかりませんでした`);
             }
 
-            // 問題をシャッフル
-            this.questions = this.shuffleArray(filteredQuestions);
+            // 問題はシャッフルしない（順番通り）
+            this.questions = filteredQuestions;
             this.currentIndex = 0;
 
             // 問題数の表示
@@ -156,9 +156,6 @@ const QuizApp = {
 
         // 選択肢の生成（シャッフルされ、correctAnswerIndexが設定される）
         this.renderChoices(question.choice);
-
-        // トップにスクロール
-        window.scrollTo({ top: 0, behavior: 'smooth' });
     },
 
     /**
@@ -303,11 +300,6 @@ const QuizApp = {
         document.getElementById('correct-answer').textContent = correctAnswer;
 
         resultSection.style.display = 'block';
-
-        // 結果セクションにスムーススクロール
-        setTimeout(() => {
-            resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 100);
     },
 
     /**
