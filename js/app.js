@@ -147,8 +147,15 @@ const QuizApp = {
         this.selectedAnswer = null;
         this.currentReviewId = null;
         document.getElementById('comment-input').value = '';
-        document.getElementById('comment-section').style.display = 'none'; // コメント欄を非表示
-        document.getElementById('result-section').style.display = 'none';
+
+        // コメント欄と結果セクションを非表示にしてアニメーションクラスを削除
+        const commentSection = document.getElementById('comment-section');
+        const resultSection = document.getElementById('result-section');
+        commentSection.classList.remove('show');
+        resultSection.classList.remove('show');
+        commentSection.style.display = 'none';
+        resultSection.style.display = 'none';
+
         document.getElementById('submit-btn').disabled = true;
         document.getElementById('submit-btn').style.display = 'block';
         document.getElementById('next-btn').style.display = 'none';
@@ -249,8 +256,10 @@ const QuizApp = {
         // 結果表示
         this.showResult(isCorrect, selectedText, correctText);
 
-        // 選択肢に色をつける
-        this.highlightChoices(this.correctAnswerIndex);
+        // 選択肢に色をつける（アニメーション後に実行）
+        setTimeout(() => {
+            this.highlightChoices(this.correctAnswerIndex);
+        }, 300);
 
         // ボタンの切り替え
         document.getElementById('submit-btn').style.display = 'none';
@@ -266,10 +275,18 @@ const QuizApp = {
             btn.disabled = true;
         });
 
-        // コメント欄を表示して入力可能にする
-        document.getElementById('comment-section').style.display = 'block';
-        document.getElementById('comment-input').disabled = false;
-        document.getElementById('comment-input').focus();
+        // コメント欄を表示して入力可能にする（結果表示後に実行）
+        setTimeout(() => {
+            const commentSection = document.getElementById('comment-section');
+            commentSection.style.display = 'block';
+            setTimeout(() => {
+                commentSection.classList.add('show');
+            }, 10);
+            document.getElementById('comment-input').disabled = false;
+            setTimeout(() => {
+                document.getElementById('comment-input').focus();
+            }, 500); // アニメーション後にフォーカス
+        }, 800); // 結果表示と選択肢ハイライトの後
     },
 
     /**
@@ -299,7 +316,11 @@ const QuizApp = {
         document.getElementById('your-answer').textContent = yourAnswer;
         document.getElementById('correct-answer').textContent = correctAnswer;
 
+        // 結果セクションを表示（アニメーション付き）
         resultSection.style.display = 'block';
+        setTimeout(() => {
+            resultSection.classList.add('show');
+        }, 10);
     },
 
     /**

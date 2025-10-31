@@ -508,7 +508,7 @@ body {
     font-size: 0.95rem;
     text-align: left;
     cursor: pointer;
-    transition: var(--transition);
+    transition: all 0.5s ease;
     position: relative;
 }
 
@@ -551,6 +551,14 @@ body {
     border-radius: var(--radius);
     margin-bottom: 10px;
     box-shadow: var(--shadow);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.comment-section.show {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .comment-section label {
@@ -587,6 +595,17 @@ body {
 /* ========================================
    結果表示
    ======================================== */
+.result-section {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.result-section.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .result-card {
     border-radius: var(--radius);
     overflow: hidden;
