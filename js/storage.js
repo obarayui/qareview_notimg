@@ -59,6 +59,31 @@ const StorageManager = {
     },
 
     /**
+     * 特定のレビューのコメントを更新
+     * @param {string} reviewId - レビューID
+     * @param {string} comment - コメント
+     */
+    updateComment(reviewId, comment) {
+        try {
+            const results = this.getAllResults();
+            const index = results.findIndex(r => r.review_id === reviewId);
+
+            if (index !== -1) {
+                results[index].comment = comment;
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(results));
+                console.log('コメントを更新しました:', reviewId);
+                return true;
+            } else {
+                console.warn('レビューIDが見つかりません:', reviewId);
+                return false;
+            }
+        } catch (error) {
+            console.error('コメント更新エラー:', error);
+            return false;
+        }
+    },
+
+    /**
      * 特定の条件でフィルタリング
      * @param {Object} filters - フィルター条件
      * @returns {Array} フィルタリングされた結果

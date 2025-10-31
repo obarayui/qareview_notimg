@@ -10,6 +10,7 @@ const QuizApp = {
     reviewerName: '',
     quizSetName: '',
     quizPath: '',
+    currentReviewId: null, // 現在の回答のレビューID
 
     /**
      * アプリケーション初期化
@@ -74,7 +75,8 @@ const QuizApp = {
                 throw new Error('問題データが空です');
             }
 
-            this.questions = data;
+            // 問題をシャッフル
+            this.questions = this.shuffleArray(data);
             this.currentIndex = 0;
 
             // 問題数の表示
@@ -138,7 +140,9 @@ const QuizApp = {
 
         // 状態のリセット
         this.selectedAnswer = null;
+        this.currentReviewId = null;
         document.getElementById('comment-input').value = '';
+        document.getElementById('comment-section').style.display = 'none'; // コメント欄を非表示
         document.getElementById('result-section').style.display = 'none';
         document.getElementById('submit-btn').disabled = true;
         document.getElementById('submit-btn').style.display = 'block';
@@ -204,10 +208,9 @@ const QuizApp = {
         const question = this.questions[this.currentIndex];
         const correctAnswer = 0; // 正解は常にインデックス0
         const isCorrect = this.selectedAnswer === correctAnswer;
-        const comment = document.getElementById('comment-input').value.trim();
 
-        // 結果を保存
-        StorageManager.saveResult({
+        // 結果を保存（コメントは空で保存）
+        this.currentReviewId = StorageManager.saveResult({
             questionId: question.questionID,
             questionSet: this.quizSetName,
             questionIndex: this.currentIndex,
@@ -218,11 +221,11 @@ const QuizApp = {
             answer: this.selectedAnswer,
             correctAnswer: correctAnswer,
             isCorrect: isCorrect,
-            comment: comment
+            comment: '' // コメントは後で入力
         });
 
         // 結果表示
-        this.showResult(isCorrect, question.choice[this.selectedAnswer], question.choice[correctAnswer], comment);
+        this.showResult(isCorrect, question.choice[this.selectedAnswer], question.choice[correctAnswer]);
 
         // 選択肢に色をつける
         this.highlightChoices(correctAnswer);
@@ -241,8 +244,10 @@ const QuizApp = {
             btn.disabled = true;
         });
 
-        // コメント入力を無効化
-        document.getElementById('comment-input').disabled = true;
+        // コメント欄を表示して入力可能にする
+        document.getElementById('comment-section').style.display = 'block';
+        document.getElementById('comment-input').disabled = false;
+        document.getElementById('comment-input').focus();
     },
 
     /**
@@ -250,9 +255,8 @@ const QuizApp = {
      * @param {boolean} isCorrect - 正解かどうか
      * @param {string} yourAnswer - 選択した回答
      * @param {string} correctAnswer - 正解
-     * @param {string} comment - コメント
      */
-    showResult(isCorrect, yourAnswer, correctAnswer, comment) {
+    showResult(isCorrect, yourAnswer, correctAnswer) {
         const resultSection = document.getElementById('result-section');
         const resultHeader = document.getElementById('result-header');
         const resultIcon = document.getElementById('result-icon');
@@ -272,15 +276,6 @@ const QuizApp = {
         // 回答の表示
         document.getElementById('your-answer').textContent = yourAnswer;
         document.getElementById('correct-answer').textContent = correctAnswer;
-
-        // コメントの表示
-        const commentResult = document.getElementById('comment-result');
-        if (comment) {
-            document.getElementById('comment-value').textContent = comment;
-            commentResult.style.display = 'block';
-        } else {
-            commentResult.style.display = 'none';
-        }
 
         resultSection.style.display = 'block';
 
@@ -308,12 +303,15 @@ const QuizApp = {
      * 次の問題へ
      */
     nextQuestion() {
+        // コメントを保存
+        if (this.currentReviewId) {
+            const comment = document.getElementById('comment-input').value.trim();
+            StorageManager.updateComment(this.currentReviewId, comment);
+        }
+
         if (this.currentIndex < this.questions.length - 1) {
             this.currentIndex++;
             this.showQuestion();
-
-            // コメント入力を有効化
-            document.getElementById('comment-input').disabled = false;
         }
     },
 
@@ -321,6 +319,12 @@ const QuizApp = {
      * レビュー完了
      */
     completeReview() {
+        // コメントを保存
+        if (this.currentReviewId) {
+            const comment = document.getElementById('comment-input').value.trim();
+            StorageManager.updateComment(this.currentReviewId, comment);
+        }
+
         const stats = StorageManager.getStatistics();
         const reviewerStats = stats.byReviewer[this.reviewerName];
 
@@ -353,6 +357,20 @@ const QuizApp = {
         }
 
         window.location.href = 'index.html';
+    },
+
+    /**
+     * 配列をシャッフル（Fisher-Yatesアルゴリズム）
+     * @param {Array} array - シャッフルする配列
+     * @returns {Array} シャッフルされた配列
+     */
+    shuffleArray(array) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
     },
 
     /**

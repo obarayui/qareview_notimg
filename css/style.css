@@ -532,7 +532,11 @@ body {
    コメント
    ======================================== */
 .comment-section {
-    margin-top: 25px;
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
 }
 
 .comment-section label {
@@ -557,6 +561,13 @@ body {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+}
+
+.comment-hint {
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    font-style: italic;
 }
 
 /* ========================================
