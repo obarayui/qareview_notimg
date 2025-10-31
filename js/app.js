@@ -320,6 +320,10 @@ const QuizApp = {
         resultSection.style.display = 'block';
         setTimeout(() => {
             resultSection.classList.add('show');
+            // 結果セクションまでぬるっとスクロール
+            setTimeout(() => {
+                resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
         }, 10);
     },
 
