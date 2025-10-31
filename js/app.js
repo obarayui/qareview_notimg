@@ -7,6 +7,7 @@ const QuizApp = {
     questions: [],
     currentIndex: 0,
     selectedAnswer: null,
+    correctAnswerIndex: null, // シャッフル後の正解のインデックス
     reviewerName: '',
     category: '',
     quizPath: '',
@@ -142,9 +143,6 @@ const QuizApp = {
         const progress = ((this.currentIndex + 1) / this.questions.length) * 100;
         document.getElementById('progress-fill').style.width = `${progress}%`;
 
-        // 選択肢の生成
-        this.renderChoices(question.choice);
-
         // 状態のリセット
         this.selectedAnswer = null;
         this.currentReviewId = null;
@@ -156,22 +154,38 @@ const QuizApp = {
         document.getElementById('next-btn').style.display = 'none';
         document.getElementById('complete-btn').style.display = 'none';
 
+        // 選択肢の生成（シャッフルされ、correctAnswerIndexが設定される）
+        this.renderChoices(question.choice);
+
         // トップにスクロール
         window.scrollTo({ top: 0, behavior: 'smooth' });
     },
 
     /**
      * 選択肢を描画
-     * @param {Array} choices - 選択肢の配列
+     * @param {Array} choices - 選択肢の配列（正解は常にインデックス0）
      */
     renderChoices(choices) {
         const container = document.getElementById('choices-container');
         container.innerHTML = '';
 
-        choices.forEach((choice, index) => {
+        // 選択肢を元のインデックスと共に配列化
+        const choicesWithIndex = choices.map((choice, index) => ({
+            text: choice,
+            originalIndex: index
+        }));
+
+        // 選択肢をシャッフル
+        const shuffledChoices = this.shuffleArray(choicesWithIndex);
+
+        // 正解の新しい位置を見つける（元のインデックス0が正解）
+        this.correctAnswerIndex = shuffledChoices.findIndex(c => c.originalIndex === 0);
+
+        // シャッフルされた選択肢を表示
+        shuffledChoices.forEach((choiceObj, index) => {
             const button = document.createElement('button');
             button.className = 'choice-btn';
-            button.textContent = choice;
+            button.textContent = choiceObj.text;
             button.dataset.index = index;
 
             button.addEventListener('click', () => this.selectAnswer(index));
@@ -208,13 +222,17 @@ const QuizApp = {
      * 回答を提出
      */
     submitAnswer() {
-        if (this.selectedAnswer === null) {
+        if (this.selectedAnswer === null || this.correctAnswerIndex === null) {
             return;
         }
 
         const question = this.questions[this.currentIndex];
-        const correctAnswer = 0; // 正解は常にインデックス0
-        const isCorrect = this.selectedAnswer === correctAnswer;
+        const isCorrect = this.selectedAnswer === this.correctAnswerIndex;
+
+        // 画面に表示されている選択肢のテキストを取得
+        const choiceButtons = document.querySelectorAll('.choice-btn');
+        const selectedText = choiceButtons[this.selectedAnswer].textContent;
+        const correctText = choiceButtons[this.correctAnswerIndex].textContent;
 
         // 結果を保存（コメントは空で保存）
         this.currentReviewId = StorageManager.saveResult({
@@ -226,16 +244,16 @@ const QuizApp = {
             questionText: question.question,
             reviewerName: this.reviewerName,
             answer: this.selectedAnswer,
-            correctAnswer: correctAnswer,
+            correctAnswer: this.correctAnswerIndex,
             isCorrect: isCorrect,
             comment: '' // コメントは後で入力
         });
 
         // 結果表示
-        this.showResult(isCorrect, question.choice[this.selectedAnswer], question.choice[correctAnswer]);
+        this.showResult(isCorrect, selectedText, correctText);
 
         // 選択肢に色をつける
-        this.highlightChoices(correctAnswer);
+        this.highlightChoices(this.correctAnswerIndex);
 
         // ボタンの切り替え
         document.getElementById('submit-btn').style.display = 'none';
