@@ -194,18 +194,32 @@ body {
 }
 
 /* ========================================
-   カスタムURL
+   セクション説明
    ======================================== */
-.custom-url-section {
-    margin-top: 30px;
-    padding-top: 30px;
-    border-top: 2px dashed var(--border-color);
+.section-description {
+    color: var(--text-muted);
+    font-size: 1rem;
+    margin-bottom: 20px;
 }
 
-.custom-url-section h3 {
-    font-size: 1.2rem;
-    margin-bottom: 15px;
-    color: var(--text-color);
+.loading-small {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.spinner-small {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+.loading-small p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
 }
 
 /* ========================================

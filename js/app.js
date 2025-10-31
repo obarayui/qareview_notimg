@@ -8,7 +8,7 @@ const QuizApp = {
     currentIndex: 0,
     selectedAnswer: null,
     reviewerName: '',
-    quizSetName: '',
+    category: '',
     quizPath: '',
     currentReviewId: null, // 現在の回答のレビューID
 
@@ -18,11 +18,11 @@ const QuizApp = {
     async init() {
         // localStorageから情報を取得
         this.reviewerName = localStorage.getItem('current_reviewer');
-        this.quizSetName = localStorage.getItem('current_quiz_set');
+        this.category = localStorage.getItem('current_category');
         this.quizPath = localStorage.getItem('current_quiz_path');
 
         // 必須情報がない場合はホームにリダイレクト
-        if (!this.reviewerName || !this.quizSetName || !this.quizPath) {
+        if (!this.reviewerName || !this.category || !this.quizPath) {
             alert('レビューアー情報が見つかりません。ホーム画面から開始してください。');
             window.location.href = 'index.html';
             return;
@@ -40,7 +40,7 @@ const QuizApp = {
      */
     setupUI() {
         // ヘッダー情報の設定
-        document.getElementById('quiz-set-name').textContent = this.quizSetName;
+        document.getElementById('quiz-set-name').textContent = this.category;
         document.getElementById('reviewer-name').textContent = this.reviewerName;
 
         // イベントリスナーの設定
@@ -75,8 +75,15 @@ const QuizApp = {
                 throw new Error('問題データが空です');
             }
 
+            // カテゴリでフィルタリング
+            const filteredQuestions = data.filter(q => q.category === this.category);
+
+            if (filteredQuestions.length === 0) {
+                throw new Error(`カテゴリ「${this.category}」の問題が見つかりませんでした`);
+            }
+
             // 問題をシャッフル
-            this.questions = this.shuffleArray(data);
+            this.questions = this.shuffleArray(filteredQuestions);
             this.currentIndex = 0;
 
             // 問題数の表示
@@ -212,7 +219,7 @@ const QuizApp = {
         // 結果を保存（コメントは空で保存）
         this.currentReviewId = StorageManager.saveResult({
             questionId: question.questionID,
-            questionSet: this.quizSetName,
+            questionSet: this.category,
             questionIndex: this.currentIndex,
             keyword: question.keyword,
             category: question.category,

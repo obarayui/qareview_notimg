@@ -30,31 +30,19 @@
             </section>
 
             <section class="quiz-set-section">
-                <h2>問題セットを選択</h2>
+                <h2>カテゴリを選択</h2>
+                <p class="section-description">学習したいカテゴリを選んでください</p>
 
-                <div class="quiz-sets">
-                    <div class="quiz-card" data-path="food_quiz/questions.json" data-name="food_quiz">
-                        <div class="quiz-card-icon">🍕</div>
-                        <h3>食べ物クイズ</h3>
-                        <p class="quiz-description">スイーツ、料理、グルメなど食に関する幅広い問題</p>
-                        <div class="quiz-badge">108問</div>
-                    </div>
+                <div id="loading-categories" class="loading-small">
+                    <div class="spinner-small"></div>
+                    <p>カテゴリを読み込んでいます...</p>
                 </div>
 
-                <div class="custom-url-section">
-                    <h3>カスタムURL</h3>
-                    <div class="form-group">
-                        <label for="custom-url">GitHubリポジトリURL（オプション）</label>
-                        <input
-                            type="text"
-                            id="custom-url"
-                            placeholder="https://github.com/user/repo/tree/branch/path/to/questions.json"
-                            class="form-input"
-                        >
-                        <div class="error-message" id="url-error"></div>
-                    </div>
-                    <button class="btn btn-secondary" id="load-custom-btn">カスタムURLから読み込む</button>
+                <div class="quiz-sets" id="quiz-sets" style="display: none;">
+                    <!-- カテゴリカードがJavaScriptで動的に生成されます -->
                 </div>
+
+                <div class="error-message" id="category-error"></div>
             </section>
 
             <div class="error-message global-error" id="global-error"></div>
@@ -62,6 +50,15 @@
     </div>
 
     <script>
+        const QUESTIONS_PATH = 'food_quiz/questions.json';
+
+        // カテゴリアイコンのマッピング
+        const CATEGORY_ICONS = {
+            '食': '🍕',
+            '日本の食文化(現代)': '🍱',
+            'デフォルト': '🍽️'
+        };
+
         // レビューアー名のバリデーション
         function validateReviewerName() {
             const reviewerName = document.getElementById('reviewer-name').value.trim();
@@ -76,8 +73,8 @@
             return true;
         }
 
-        // 問題セットの開始
-        function startQuiz(path, setName) {
+        // カテゴリ別問題セットの開始
+        function startQuiz(category, questionCount) {
             if (!validateReviewerName()) {
                 document.getElementById('reviewer-name').focus();
                 return;
@@ -87,43 +84,69 @@
 
             // localStorageに保存
             localStorage.setItem('current_reviewer', reviewerName);
-            localStorage.setItem('current_quiz_set', setName);
-            localStorage.setItem('current_quiz_path', path);
+            localStorage.setItem('current_category', category);
+            localStorage.setItem('current_quiz_path', QUESTIONS_PATH);
 
             // レビュー画面に遷移
             window.location.href = 'review.html';
         }
 
-        // カスタムURLの処理
-        function loadCustomUrl() {
-            if (!validateReviewerName()) {
-                document.getElementById('reviewer-name').focus();
-                return;
+        // カテゴリを読み込んで表示
+        async function loadCategories() {
+            try {
+                const response = await fetch(QUESTIONS_PATH);
+                if (!response.ok) {
+                    throw new Error('問題データの読み込みに失敗しました');
+                }
+
+                const questions = await response.json();
+
+                // カテゴリごとに問題数を集計
+                const categoryMap = {};
+                questions.forEach(q => {
+                    const category = q.category || 'その他';
+                    if (!categoryMap[category]) {
+                        categoryMap[category] = 0;
+                    }
+                    categoryMap[category]++;
+                });
+
+                // カテゴリカードを生成
+                const container = document.getElementById('quiz-sets');
+                container.innerHTML = '';
+
+                Object.entries(categoryMap).forEach(([category, count]) => {
+                    const card = document.createElement('div');
+                    card.className = 'quiz-card';
+                    card.dataset.category = category;
+                    card.dataset.count = count;
+
+                    const icon = CATEGORY_ICONS[category] || CATEGORY_ICONS['デフォルト'];
+
+                    card.innerHTML = `
+                        <div class="quiz-card-icon">${icon}</div>
+                        <h3>${category}</h3>
+                        <p class="quiz-description">${category}に関する問題</p>
+                        <div class="quiz-badge">${count}問</div>
+                    `;
+
+                    card.addEventListener('click', () => {
+                        startQuiz(category, count);
+                    });
+
+                    container.appendChild(card);
+                });
+
+                // ローディングを非表示、カテゴリを表示
+                document.getElementById('loading-categories').style.display = 'none';
+                container.style.display = 'grid';
+
+            } catch (error) {
+                console.error('カテゴリ読み込みエラー:', error);
+                document.getElementById('loading-categories').style.display = 'none';
+                document.getElementById('category-error').textContent =
+                    'カテゴリの読み込みに失敗しました: ' + error.message;
             }
-
-            const customUrl = document.getElementById('custom-url').value.trim();
-            const urlErrorEl = document.getElementById('url-error');
-
-            if (!customUrl) {
-                urlErrorEl.textContent = 'URLを入力してください';
-                return;
-            }
-
-            if (!customUrl.startsWith('https://github.com/')) {
-                urlErrorEl.textContent = 'GitHubのURLを入力してください';
-                return;
-            }
-
-            urlErrorEl.textContent = '';
-
-            const reviewerName = document.getElementById('reviewer-name').value.trim();
-            const setName = 'custom';
-
-            localStorage.setItem('current_reviewer', reviewerName);
-            localStorage.setItem('current_quiz_set', setName);
-            localStorage.setItem('current_quiz_path', customUrl);
-
-            window.location.href = 'review.html';
         }
 
         // イベントリスナーの設定
@@ -133,29 +156,8 @@
                 document.getElementById('name-error').textContent = '';
             });
 
-            // 問題セットカードのクリック
-            document.querySelectorAll('.quiz-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    const path = card.dataset.path;
-                    const name = card.dataset.name;
-                    startQuiz(path, name);
-                });
-            });
-
-            // カスタムURLボタン
-            document.getElementById('load-custom-btn').addEventListener('click', loadCustomUrl);
-
-            // カスタムURLの入力でエラーをクリア
-            document.getElementById('custom-url').addEventListener('input', () => {
-                document.getElementById('url-error').textContent = '';
-            });
-
-            // Enterキーでカスタム読み込み
-            document.getElementById('custom-url').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    loadCustomUrl();
-                }
-            });
+            // カテゴリを読み込む
+            loadCategories();
         });
     </script>
 </body>
