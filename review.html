@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>食べ物クイズレビュー - レビュー画面</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="review-header">
+            <div class="header-top">
+                <h1>🍽️ 食べ物クイズレビュー</h1>
+                <button class="btn btn-text" id="back-home-btn">ホームに戻る</button>
+            </div>
+            <div class="header-info">
+                <div class="progress-info">
+                    <span class="progress-text">問題 <span id="current-question">1</span> / <span id="total-questions">0</span></span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                </div>
+                <div class="meta-info">
+                    <span class="badge badge-primary" id="quiz-set-name">問題セット</span>
+                    <span class="badge badge-reviewer" id="reviewer-name">レビューアー</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="review-content">
+            <!-- ローディング表示 -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>問題を読み込んでいます...</p>
+            </div>
+
+            <!-- エラー表示 -->
+            <div id="error-container" class="error-container" style="display: none;">
+                <div class="error-icon">⚠️</div>
+                <h2>エラーが発生しました</h2>
+                <p id="error-message"></p>
+                <button class="btn btn-primary" id="retry-btn">再試行</button>
+                <button class="btn btn-secondary" id="error-home-btn">ホームに戻る</button>
+            </div>
+
+            <!-- 問題表示エリア -->
+            <div id="question-container" style="display: none;">
+                <section class="question-section">
+                    <div class="question-badges">
+                        <span class="badge badge-id" id="question-id">Q001</span>
+                        <span class="badge badge-keyword" id="question-keyword" style="display: none;"></span>
+                        <span class="badge badge-category" id="question-category">カテゴリ</span>
+                        <span class="badge badge-year" id="question-year" style="display: none;"></span>
+                    </div>
+                    <h2 class="question-text" id="question-text">問題文がここに表示されます</h2>
+                    <div class="question-reference" id="question-reference" style="display: none;">
+                        <a href="#" target="_blank" rel="noopener noreferrer" id="reference-link">📚 参考資料を見る</a>
+                    </div>
+                </section>
+
+                <section class="answer-section">
+                    <h3>回答を選択してください</h3>
+                    <div class="choices" id="choices-container">
+                        <!-- 選択肢がJavaScriptで動的に生成されます -->
+                    </div>
+
+                    <div class="comment-section">
+                        <label for="comment-input">コメント（オプション）</label>
+                        <textarea
+                            id="comment-input"
+                            placeholder="この問題についてのコメントや気づいた点などを入力してください"
+                            rows="3"
+                            class="comment-input"
+                        ></textarea>
+                    </div>
+                </section>
+
+                <!-- 結果表示エリア -->
+                <section class="result-section" id="result-section" style="display: none;">
+                    <div class="result-card">
+                        <div class="result-header" id="result-header">
+                            <span class="result-icon" id="result-icon">✓</span>
+                            <h3 id="result-title">正解！</h3>
+                        </div>
+                        <div class="result-body">
+                            <div class="result-item">
+                                <span class="result-label">あなたの回答:</span>
+                                <span class="result-value" id="your-answer">選択肢</span>
+                            </div>
+                            <div class="result-item">
+                                <span class="result-label">正解:</span>
+                                <span class="result-value" id="correct-answer">正解の選択肢</span>
+                            </div>
+                            <div class="result-item" id="comment-result" style="display: none;">
+                                <span class="result-label">コメント:</span>
+                                <span class="result-value" id="comment-value"></span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- アクションボタン -->
+                <section class="action-section">
+                    <button class="btn btn-primary btn-large" id="submit-btn" disabled>回答を提出</button>
+                    <button class="btn btn-primary btn-large" id="next-btn" style="display: none;">次の問題へ</button>
+                    <button class="btn btn-success btn-large" id="complete-btn" style="display: none;">レビュー完了</button>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/github.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>食べ物クイズレビュー - ホーム</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="app-header">
+            <h1>🍽️ 食べ物クイズレビュー</h1>
+            <p class="subtitle">食に関するクイズに挑戦しよう！</p>
+        </header>
+
+        <main class="home-content">
+            <section class="input-section">
+                <h2>レビューアー情報</h2>
+                <div class="form-group">
+                    <label for="reviewer-name">レビューアー名 <span class="required">*</span></label>
+                    <input
+                        type="text"
+                        id="reviewer-name"
+                        placeholder="名前を入力してください"
+                        class="form-input"
+                        required
+                    >
+                    <div class="error-message" id="name-error"></div>
+                </div>
+            </section>
+
+            <section class="quiz-set-section">
+                <h2>問題セットを選択</h2>
+
+                <div class="quiz-sets">
+                    <div class="quiz-card" data-path="food_quiz/questions.json" data-name="food_quiz">
+                        <div class="quiz-card-icon">🍕</div>
+                        <h3>食べ物クイズ</h3>
+                        <p class="quiz-description">スイーツ、料理、グルメなど食に関する幅広い問題</p>
+                        <div class="quiz-badge">108問</div>
+                    </div>
+                </div>
+
+                <div class="custom-url-section">
+                    <h3>カスタムURL</h3>
+                    <div class="form-group">
+                        <label for="custom-url">GitHubリポジトリURL（オプション）</label>
+                        <input
+                            type="text"
+                            id="custom-url"
+                            placeholder="https://github.com/user/repo/tree/branch/path/to/questions.json"
+                            class="form-input"
+                        >
+                        <div class="error-message" id="url-error"></div>
+                    </div>
+                    <button class="btn btn-secondary" id="load-custom-btn">カスタムURLから読み込む</button>
+                </div>
+            </section>
+
+            <div class="error-message global-error" id="global-error"></div>
+        </main>
+    </div>
+
+    <script>
+        // レビューアー名のバリデーション
+        function validateReviewerName() {
+            const reviewerName = document.getElementById('reviewer-name').value.trim();
+            const errorEl = document.getElementById('name-error');
+
+            if (!reviewerName) {
+                errorEl.textContent = 'レビューアー名を入力してください';
+                return false;
+            }
+
+            errorEl.textContent = '';
+            return true;
+        }
+
+        // 問題セットの開始
+        function startQuiz(path, setName) {
+            if (!validateReviewerName()) {
+                document.getElementById('reviewer-name').focus();
+                return;
+            }
+
+            const reviewerName = document.getElementById('reviewer-name').value.trim();
+
+            // localStorageに保存
+            localStorage.setItem('current_reviewer', reviewerName);
+            localStorage.setItem('current_quiz_set', setName);
+            localStorage.setItem('current_quiz_path', path);
+
+            // レビュー画面に遷移
+            window.location.href = 'review.html';
+        }
+
+        // カスタムURLの処理
+        function loadCustomUrl() {
+            if (!validateReviewerName()) {
+                document.getElementById('reviewer-name').focus();
+                return;
+            }
+
+            const customUrl = document.getElementById('custom-url').value.trim();
+            const urlErrorEl = document.getElementById('url-error');
+
+            if (!customUrl) {
+                urlErrorEl.textContent = 'URLを入力してください';
+                return;
+            }
+
+            if (!customUrl.startsWith('https://github.com/')) {
+                urlErrorEl.textContent = 'GitHubのURLを入力してください';
+                return;
+            }
+
+            urlErrorEl.textContent = '';
+
+            const reviewerName = document.getElementById('reviewer-name').value.trim();
+            const setName = 'custom';
+
+            localStorage.setItem('current_reviewer', reviewerName);
+            localStorage.setItem('current_quiz_set', setName);
+            localStorage.setItem('current_quiz_path', customUrl);
+
+            window.location.href = 'review.html';
+        }
+
+        // イベントリスナーの設定
+        document.addEventListener('DOMContentLoaded', () => {
+            // レビューアー名の入力でエラーをクリア
+            document.getElementById('reviewer-name').addEventListener('input', () => {
+                document.getElementById('name-error').textContent = '';
+            });
+
+            // 問題セットカードのクリック
+            document.querySelectorAll('.quiz-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const path = card.dataset.path;
+                    const name = card.dataset.name;
+                    startQuiz(path, name);
+                });
+            });
+
+            // カスタムURLボタン
+            document.getElementById('load-custom-btn').addEventListener('click', loadCustomUrl);
+
+            // カスタムURLの入力でエラーをクリア
+            document.getElementById('custom-url').addEventListener('input', () => {
+                document.getElementById('url-error').textContent = '';
+            });
+
+            // Enterキーでカスタム読み込み
+            document.getElementById('custom-url').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    loadCustomUrl();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
