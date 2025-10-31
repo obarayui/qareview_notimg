@@ -69,75 +69,50 @@ https://<username>.github.io/<repository-name>/
 
 4. **バケットを作成** をクリック
 
-### 2.2 CORS設定
-
-S3バケットにブラウザからアクセスできるようにCORSを設定します。
-
-1. 作成したバケットを選択
-2. **アクセス許可** タブをクリック
-3. **クロスオリジンリソース共有 (CORS)** セクションまでスクロール
-4. **編集** をクリックして以下のJSON設定を追加：
-
-```json
-[
-    {
-        "AllowedHeaders": [
-            "*"
-        ],
-        "AllowedMethods": [
-            "GET",
-            "PUT",
-            "POST"
-        ],
-        "AllowedOrigins": [
-            "https://<username>.github.io",
-            "http://localhost:8000",
-            "http://127.0.0.1:8000"
-        ],
-        "ExposeHeaders": [
-            "ETag"
-        ],
-        "MaxAgeSeconds": 3000
-    }
-]
-```
-
-**注意**: `<username>.github.io`を実際のGitHub PagesのURLに置き換えてください。
-
-5. **変更を保存** をクリック
-
-### 2.3 バケットポリシーの設定（オプション）
-
-Cognito認証されたユーザーのみがアクセスできるように設定します（次のセクションで設定）。
+**注意**: このバケットには`review.json`という単一のファイルにすべてのレビュー結果が保存されます。
 
 ---
 
-## 3. AWS Cognitoの設定
+## 3. AWS Lambda関数の作成
 
-匿名ユーザーがS3に結果をアップロードできるよう、Cognito Identity Poolを設定します。
+レビューデータをS3に保存するLambda関数を作成します。
 
-### 3.1 Identity Poolの作成
+### 3.1 Lambda関数の作成
 
-1. AWS Management Consoleで **Amazon Cognito** サービスに移動
-2. **IDプールの管理** をクリック
-3. **新しいIDプールの作成** をクリック
+1. AWS Management Consoleで **Lambda** サービスに移動
+2. **関数の作成** をクリック
+3. 以下の設定で作成：
 
-**IDプール設定**：
-- **IDプール名**: `SakuraQA_Food_Review_Pool`
-- **認証されていないIDに対してアクセスを有効にする**: ✅ チェック
+**基本的な情報**：
+- **関数名**: `SaveReviewToS3`
+- **ランタイム**: `Node.js 20.x` または最新バージョン
+- **アーキテクチャ**: `x86_64`
 
-4. **プールの作成** をクリック
+4. **関数の作成** をクリック
 
-### 3.2 IAMロールの設定
+### 3.2 Lambda関数のコード
 
-Cognitoが自動的に2つのIAMロールを作成します。**認証されていないロール**を編集します。
+1. 関数の **コード** タブで、`lambda/index.mjs`の内容をコピー＆ペースト
+2. **Deploy** ボタンをクリック
 
-1. 作成された **Cognito_SakuraQA_Food_Review_PoolUnauth_Role** をクリック
-2. IAMコンソールに移動
-3. **許可を追加** → **ポリシーをアタッチ** をクリック
-4. **ポリシーの作成** をクリック
+### 3.3 環境変数の設定
 
-以下のJSON形式のポリシーを作成：
+1. **設定** タブ → **環境変数** をクリック
+2. 以下の環境変数を追加：
+
+| キー | 値 |
+|------|-----|
+| `S3_BUCKET_NAME` | `sakuraqa-food-review-results`（作成したバケット名） |
+| `AWS_REGION` | `ap-northeast-1` |
+
+### 3.4 IAMロールの権限設定
+
+Lambda関数がS3にアクセスできるよう権限を設定します。
+
+1. **設定** タブ → **アクセス権限** をクリック
+2. **実行ロール** の下にある **ロール名** をクリック（IAMコンソールに移動）
+3. **許可を追加** → **インラインポリシーを作成** をクリック
+4. JSONタブで以下のポリシーを追加：
 
 ```json
 {
@@ -146,8 +121,8 @@ Cognitoが自動的に2つのIAMロールを作成します。**認証されて�
         {
             "Effect": "Allow",
             "Action": [
-                "s3:PutObject",
-                "s3:PutObjectAcl"
+                "s3:GetObject",
+                "s3:PutObject"
             ],
             "Resource": "arn:aws:s3:::sakuraqa-food-review-results/*"
         }
@@ -155,61 +130,104 @@ Cognitoが自動的に2つのIAMロールを作成します。**認証されて�
 }
 ```
 
-**ポリシー名**: `SakuraQA_S3_Upload_Policy`
+5. ポリシー名: `S3ReviewAccessPolicy`
+6. **ポリシーの作成** をクリック
 
-5. ポリシーを作成して、先ほどのロールにアタッチ
+### 3.5 タイムアウトの設定
 
-### 3.3 必要な情報を控える
-
-以下の情報をメモしてください（次のステップで使用）：
-
-- **Identity Pool ID**: `ap-northeast-1:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
-- **リージョン**: `ap-northeast-1`
-- **S3バケット名**: `sakuraqa-food-review-results`
+1. **設定** タブ → **一般設定** → **編集** をクリック
+2. **タイムアウト**: `30秒` に設定（デフォルトの3秒では不足する可能性があります）
+3. **保存** をクリック
 
 ---
 
-## 4. アプリケーションの設定
+## 4. API Gatewayの設定
 
-### 4.1 AWS SDK for JavaScriptの追加
+Lambda関数をHTTP APIとして公開します。
 
-`review.html`に以下のスクリプトタグを追加（`</body>`の直前）：
+### 4.1 API Gatewayの作成
 
-```html
-<!-- AWS SDK -->
-<script src="https://sdk.amazonaws.com/js/aws-sdk-2.1000.0.min.js"></script>
+1. AWS Management Consoleで **API Gateway** サービスに移動
+2. **APIを作成** をクリック
+3. **HTTP API** を選択して **構築** をクリック
+
+**API作成**：
+- **API名**: `ReviewAPI`
+- **統合を追加**: **Lambda** を選択
+- **Lambda関数**: 先ほど作成した `SaveReviewToS3` を選択
+- **APIパス**: `/review`
+- **メソッド**: `POST`
+
+4. **次へ** → **次へ** → **作成** をクリック
+
+### 4.2 CORSの設定
+
+1. 作成したAPIを選択
+2. 左メニューから **CORS** をクリック
+3. 以下を設定：
+
+- **Access-Control-Allow-Origin**: `*`（本番環境では`https://<username>.github.io`に制限推奨）
+- **Access-Control-Allow-Methods**: `POST, OPTIONS`
+- **Access-Control-Allow-Headers**: `Content-Type`
+
+4. **保存** をクリック
+
+### 4.3 APIエンドポイントURLを控える
+
+1. 左メニューから **ステージ** をクリック
+2. **$default** ステージを選択
+3. **呼び出しURL** をコピー（例: `https://xxxxxxxxxx.execute-api.ap-northeast-1.amazonaws.com`）
+
+**最終的なAPIエンドポイント**は以下の形式になります：
+```
+https://xxxxxxxxxx.execute-api.ap-northeast-1.amazonaws.com/review
 ```
 
-### 4.2 AWS設定ファイルの作成
+このURLを次のステップで使用します。
 
-プロジェクトルートに`js/aws-config.js`ファイルを作成し、以下の内容を記述：
+---
+
+## 5. アプリケーションの設定
+
+### 5.1 AWS設定ファイルの作成
+
+プロジェクトルートに`js/aws-config.js`ファイルを作成します。テンプレートをコピー：
+
+```bash
+cp js/aws-config.example.js js/aws-config.js
+```
+
+`js/aws-config.js`を開き、以下の値を設定：
 
 ```javascript
 const AWS_CONFIG = {
     region: 'ap-northeast-1',
-    identityPoolId: 'ap-northeast-1:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', // 実際のIDに置き換え
-    bucketName: 'sakuraqa-food-review-results' // 実際のバケット名に置き換え
+    bucketName: 'sakuraqa-food-review-results', // 実際のバケット名に置き換え
+    apiEndpoint: 'https://xxxxxxxxxx.execute-api.ap-northeast-1.amazonaws.com/review', // 実際のAPI GatewayのURLに置き換え
+    enableS3Upload: true
 };
 ```
 
-**重要**: `identityPoolId`は実際のCognito Identity Pool IDに置き換えてください。
+**重要**: `apiEndpoint`は手順4.3で取得したAPI Gateway URLに置き換えてください。
 
-### 4.3 .gitignoreの設定（セキュリティ）
+### 5.2 .gitignoreの設定（セキュリティ）
 
-実際の環境では、AWS設定を`.gitignore`に追加してGitにコミットしないようにします：
+AWS設定を`.gitignore`に追加してGitにコミットしないようにします：
 
 ```bash
 echo "js/aws-config.js" >> .gitignore
 ```
 
-代わりに、`js/aws-config.example.js`をテンプレートとして作成し、README等で設定方法を説明します。
+これにより、APIエンドポイントURLやその他の設定情報が公開リポジトリにコミットされるのを防ぎます。
 
-### 4.4 S3アップロード機能の有効化
+### 5.3 設定の確認
 
-`review.html`で`js/aws-config.js`を読み込みます（`js/storage.js`の前に）：
+`review.html`で正しくスクリプトが読み込まれているか確認：
 
 ```html
+<!-- AWS設定ファイル（存在しない場合はAPI送信機能が無効化されます） -->
 <script src="js/aws-config.js"></script>
+
 <script src="js/github.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/app.js"></script>
@@ -217,9 +235,9 @@ echo "js/aws-config.js" >> .gitignore
 
 ---
 
-## 5. 動作確認
+## 6. 動作確認
 
-### 5.1 ローカルでのテスト
+### 6.1 ローカルでのテスト
 
 ```bash
 python3 -m http.server 8000 --bind 127.0.0.1
@@ -229,105 +247,239 @@ http://127.0.0.1:8000 にアクセスして、以下を確認：
 
 1. レビューアー名を入力
 2. カテゴリを選択
-3. 問題に回答
-4. ブラウザの開発者ツールのコンソールで「S3にアップロード成功」メッセージを確認
+3. 問題に回答して提出
+4. ブラウザの開発者ツールのコンソールで「APIに保存成功」メッセージを確認
 
-### 5.2 S3バケットの確認
+### 6.2 S3バケットの確認
 
-AWS Management Console → S3 → バケット内に以下のようなファイルが保存されているか確認：
+AWS Management Console → S3 → バケット内に`review.json`ファイルが作成されているか確認：
 
 ```
-results/
-  ├── 田中太郎_食_20251031_123456.json
-  └── 山田花子_日本の食文化(現代)_20251031_140000.json
+review.json  ← すべてのレビューデータが1つのファイルに保存される
 ```
 
-### 5.3 GitHub Pagesでの確認
+`review.json`の内容例：
+```json
+[
+  {
+    "review_id": "review_1698765432000_abc12345",
+    "question_id": "Q001",
+    "question_set": "食",
+    "question_index": 0,
+    "keyword": "寿司",
+    "category": "食",
+    "question_text": "寿司の発祥地は？",
+    "reviewer_name": "田中太郎",
+    "answer": "東京",
+    "correct_answer": "東京",
+    "is_correct": true,
+    "timestamp": "2025-10-31T12:34:56.789Z",
+    "comment": "知っていました"
+  }
+]
+```
+
+### 6.3 Lambda関数のログ確認
+
+1. AWS Management Console → CloudWatch → ロググループ
+2. `/aws/lambda/SaveReviewToS3` ロググループを選択
+3. 最新のログストリームを確認
+4. 正常に動作していれば「Successfully updated review.json in S3」などのログが表示される
+
+### 6.4 GitHub Pagesでの確認
 
 GitHub Pagesのデプロイが完了したら、URLにアクセスして同様に動作を確認します。
 
 ---
 
-## トラブルシューティング
+## 7. トラブルシューティング
 
 ### CORSエラーが発生する場合
 
-**症状**: コンソールに「Access to XMLHttpRequest at '...' from origin '...' has been blocked by CORS policy」
+**症状**: コンソールに「Access to fetch at '...' from origin '...' has been blocked by CORS policy」
 
 **解決策**:
-1. S3バケットのCORS設定を確認
-2. `AllowedOrigins`に正しいGitHub PagesのURLが含まれているか確認
-3. ブラウザのキャッシュをクリアして再試行
+1. API GatewayのCORS設定を確認
+2. `Access-Control-Allow-Origin`に正しいオリジンが含まれているか確認
+3. `Access-Control-Allow-Methods`に`POST, OPTIONS`が含まれているか確認
+4. ブラウザのキャッシュをクリアして再試行
 
-### 認証エラーが発生する場合
+### API呼び出しが失敗する場合
 
-**症状**: 「The security token included in the request is invalid」
-
-**解決策**:
-1. Cognito Identity Pool IDが正しいか確認
-2. IAMロールの権限設定を確認
-3. S3バケット名が正しいか確認
-
-### ファイルがアップロードされない
+**症状**: 「API保存エラー」がコンソールに表示される
 
 **解決策**:
-1. ブラウザの開発者ツールのコンソールでエラーメッセージを確認
-2. IAMロールに`s3:PutObject`権限があるか確認
-3. バケット名とリージョンが正しいか確認
+1. `js/aws-config.js`の`apiEndpoint`が正しいか確認（`/review`パスを含めること）
+2. API GatewayのステージURLを確認
+3. Lambda関数が正しくデプロイされているか確認
+4. CloudWatch Logsで詳細なエラーを確認
+
+### S3にデータが保存されない
+
+**症状**: API呼び出しは成功するがS3にファイルが作成されない
+
+**解決策**:
+1. LambdaのIAMロールに`s3:GetObject`と`s3:PutObject`権限があるか確認
+2. 環境変数`S3_BUCKET_NAME`が正しいバケット名に設定されているか確認
+3. CloudWatch Logsでエラーメッセージを確認
+4. Lambda関数のタイムアウトが十分か確認（30秒推奨）
+
+### データが重複して保存される
+
+**症状**: 同じレビューが複数回保存される
+
+**解決策**:
+1. Lambda関数のコードで`findIndex`による既存レビューの検索が正しく動作しているか確認
+2. `review_id`が一意に生成されているか確認
+
+### Lambda関数がタイムアウトする
+
+**症状**: 502 Bad Gateway エラーが発生する
+
+**解決策**:
+1. Lambda関数の設定でタイムアウトを30秒に設定
+2. S3バケットへのネットワークアクセスが正常か確認
+3. Lambda関数のメモリを増やす（デフォルトの128MBから256MBへ）
 
 ---
 
-## セキュリティに関する注意事項
+## 8. セキュリティに関する注意事項
 
-### 1. 認証情報の管理
+### 1. API Gatewayのアクセス制限
 
-- `aws-config.js`には機密情報（認証情報）を含めないでください
-- Cognito Identity Poolを使用して、一時的な認証情報を取得してください
-- 本番環境では環境変数や別の設定管理サービスを検討してください
+- 本番環境では`Access-Control-Allow-Origin`を`*`ではなく、特定のドメイン（`https://<username>.github.io`）に制限してください
+- API Keyやカスタムオーソライザーの使用を検討してください
+- レート制限（スロットリング）を設定して、過度なリクエストを防いでください
 
-### 2. S3アクセス制限
+### 2. Lambda関数のセキュリティ
 
-- S3バケットは必ずプライベートに設定してください
-- IAMポリシーは最小権限の原則に従ってください（PutObjectのみ）
-- 必要に応じてバケットポリシーで追加の制限を設定してください
+- 環境変数に機密情報を保存する場合は、AWS Secrets Managerの使用を検討してください
+- Lambda関数のIAMロールは最小権限の原則に従ってください（`s3:GetObject`と`s3:PutObject`のみ）
+- VPC内でLambdaを実行する場合は、適切なセキュリティグループを設定してください
 
-### 3. データ保護
+### 3. S3バケットのセキュリティ
 
-- S3に保存されるデータには個人情報が含まれる可能性があります
-- 適切なデータ保護方針に従ってください
-- 必要に応じてS3サーバー側暗号化（SSE）を有効にしてください
+- S3バケットは必ずプライベートに設定してください（パブリックアクセスをすべてブロック）
+- バケットポリシーでLambda実行ロールのみアクセスを許可してください
+- S3サーバー側暗号化（SSE-S3またはSSE-KMS）を有効にすることを推奨します
+- バージョニングを有効にして、誤削除や上書きからデータを保護してください
+
+### 4. データ保護
+
+- S3に保存されるデータには個人情報（レビューアー名など）が含まれる可能性があります
+- 適切なデータ保護方針に従い、GDPRや個人情報保護法に準拠してください
+- データの保存期間を定義し、ライフサイクルポリシーで古いデータを自動削除することを検討してください
+
+### 5. 設定ファイルの管理
+
+- `js/aws-config.js`を`.gitignore`に追加し、GitHubにコミットしないでください
+- 代わりに`js/aws-config.example.js`をテンプレートとして提供してください
+- デプロイ時にCI/CDパイプラインで設定ファイルを動的に生成することを推奨します
 
 ---
 
-## 費用について
+## 9. 費用について
 
 ### GitHub Pages
 - 無料（パブリックリポジトリの場合）
 - 帯域制限: 月100GB
 - ビルド時間制限: 月10時間
 
+### AWS Lambda
+- 無料枠: 月100万リクエスト、40万GB秒のコンピューティング時間
+- 超過後: ~$0.20/100万リクエスト、~$0.0000166667/GB秒
+- **想定コスト**: 月1,000レビューの場合、ほぼ無料
+
+### AWS API Gateway
+- HTTP API: 無料枠なし
+- コスト: ~$1.00/100万リクエスト
+- **想定コスト**: 月1,000レビューの場合、$0.001（約0.15円）
+
 ### AWS S3
-- 最初の5GB: 無料（12ヶ月間）
+- 無料枠（12ヶ月間）: 5GBのストレージ、20,000 GETリクエスト、2,000 PUTリクエスト
 - ストレージ: ~$0.025/GB/月
-- リクエスト: PUT/POST ~$0.005/1,000リクエスト
+- リクエスト: GET ~$0.0004/1,000リクエスト、PUT ~$0.005/1,000リクエスト
+- **想定コスト**: review.jsonが10MBの場合、月$0.01未満
 
-### AWS Cognito
-- 月間アクティブユーザー50,000人まで無料
+### 合計想定コスト
+- 小規模利用（月1,000レビュー）: **ほぼ無料〜月数円**
+- 中規模利用（月10,000レビュー）: **月数十円**
 
 ---
 
-## 次のステップ
+## 10. 次のステップ
 
-- [ ] 定期的なS3バケットのバックアップ設定
+### 基本的な改善
+
+- [ ] API GatewayにAPI Keyを追加して、アクセスを制限
+- [ ] Lambda関数のテストケースを作成
+- [ ] S3バケットのバージョニングとバックアップ設定
+- [ ] CloudWatch Alarmsでエラー監視を設定
+
+### 高度な機能追加
+
+- [ ] DynamoDBを使用した高速な検索・集計機能
+- [ ] Amazon Athenaでreview.jsonを分析
+- [ ] QuickSightでダッシュボード作成
 - [ ] CloudFrontを使用したコンテンツ配信の高速化
-- [ ] データ分析のためのAmazon Athenaの設定
+
+### 開発環境の改善
+
 - [ ] CI/CDパイプラインの構築（GitHub Actions）
+- [ ] ローカル開発環境でLambdaをテストする仕組み（SAM/Serverless Framework）
+- [ ] Lambda関数のユニットテスト追加
+
+### データ管理
+
+- [ ] S3ライフサイクルポリシーで古いバックアップを自動削除
+- [ ] review.jsonのサイズが大きくなった場合の分割戦略
+- [ ] データエクスポート機能（CSV、Excel形式）
 
 ---
 
-## 参考リンク
+## 11. アーキテクチャの概要
+
+```
+┌─────────────────┐
+│  GitHub Pages   │
+│  (Frontend)     │
+└────────┬────────┘
+         │ HTTPS
+         ↓
+┌─────────────────┐
+│  API Gateway    │
+│  (HTTP API)     │
+└────────┬────────┘
+         │
+         ↓
+┌─────────────────┐        ┌─────────────────┐
+│  Lambda         │───────→│  S3 Bucket      │
+│  SaveReviewToS3 │  R/W   │  review.json    │
+└─────────────────┘        └─────────────────┘
+         │
+         ↓
+┌─────────────────┐
+│  CloudWatch     │
+│  Logs           │
+└─────────────────┘
+```
+
+**データフロー**:
+1. ユーザーが問題に回答して提出
+2. フロントエンド（JavaScript）がAPI Gatewayに POST リクエスト
+3. API GatewayがLambda関数を呼び出し
+4. Lambda関数がS3から`review.json`を取得
+5. 新しいレビューデータを追加または既存データを更新
+6. Lambda関数がS3に`review.json`を保存
+7. 成功レスポンスをフロントエンドに返却
+
+---
+
+## 12. 参考リンク
 
 - [GitHub Pages Documentation](https://docs.github.com/ja/pages)
+- [AWS Lambda Documentation](https://docs.aws.amazon.com/lambda/)
+- [AWS API Gateway HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api.html)
 - [AWS S3 Documentation](https://docs.aws.amazon.com/s3/)
-- [AWS Cognito Identity Pools](https://docs.aws.amazon.com/cognito/latest/developerguide/identity-pools.html)
-- [AWS SDK for JavaScript](https://docs.aws.amazon.com/sdk-for-javascript/)
+- [AWS SDK for JavaScript v3](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/)
+- [CloudWatch Logs](https://docs.aws.amazon.com/cloudwatch/)

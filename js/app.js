@@ -261,6 +261,27 @@ const QuizApp = {
             comment: '' // コメントは後で入力
         });
 
+        // APIに送信（非同期、エラーでも処理は継続）
+        const reviewData = {
+            review_id: this.currentReviewId,
+            question_id: question.questionID,
+            question_set: this.category,
+            question_index: this.currentIndex,
+            keyword: question.keyword || '',
+            category: question.category,
+            question_text: question.question,
+            reviewer_name: this.reviewerName,
+            answer: selectedText,
+            correct_answer: correctText,
+            is_correct: isCorrect,
+            timestamp: new Date().toISOString(),
+            comment: ''
+        };
+
+        StorageManager.saveReviewToAPI(reviewData).catch(error => {
+            console.warn('API送信に失敗しましたが、localStorageには保存されています:', error);
+        });
+
         // 進捗を保存
         StorageManager.saveProgress(this.reviewerName, this.category, this.currentIndex);
 
@@ -355,11 +376,22 @@ const QuizApp = {
     /**
      * 次の問題へ
      */
-    nextQuestion() {
+    async nextQuestion() {
         // コメントを保存
         if (this.currentReviewId) {
             const comment = document.getElementById('comment-input').value.trim();
             StorageManager.updateComment(this.currentReviewId, comment);
+
+            // コメントが入力されていればAPIにも送信（コメント更新）
+            if (comment) {
+                const results = StorageManager.getAllResults();
+                const reviewData = results.find(r => r.review_id === this.currentReviewId);
+                if (reviewData) {
+                    await StorageManager.saveReviewToAPI(reviewData).catch(error => {
+                        console.warn('コメントの同期に失敗しました:', error);
+                    });
+                }
+            }
         }
 
         if (this.currentIndex < this.questions.length - 1) {
@@ -378,20 +410,21 @@ const QuizApp = {
         if (this.currentReviewId) {
             const comment = document.getElementById('comment-input').value.trim();
             StorageManager.updateComment(this.currentReviewId, comment);
+
+            // コメントが入力されていればAPIにも送信（コメント更新）
+            if (comment) {
+                const results = StorageManager.getAllResults();
+                const reviewData = results.find(r => r.review_id === this.currentReviewId);
+                if (reviewData) {
+                    await StorageManager.saveReviewToAPI(reviewData).catch(error => {
+                        console.warn('コメントの同期に失敗しました:', error);
+                    });
+                }
+            }
         }
 
         // 進捗を削除（レビュー完了）
         StorageManager.clearProgress(this.reviewerName, this.category);
-
-        // S3にアップロード（非同期）
-        try {
-            const uploaded = await StorageManager.uploadToS3(this.reviewerName, this.category);
-            if (uploaded) {
-                console.log('レビュー結果をS3にバックアップしました');
-            }
-        } catch (error) {
-            console.error('S3アップロードエラー（継続します）:', error);
-        }
 
         const stats = StorageManager.getStatistics();
         const reviewerStats = stats.byReviewer[this.reviewerName];

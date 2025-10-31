@@ -411,139 +411,44 @@ const StorageManager = {
     },
 
     /**
-     * AWS SDKを初期化
+     * レビュー結果をAPIに送信（1問ごと）
+     * @param {Object} reviewData - レビューデータ
+     * @returns {Promise<boolean>} 成功したかどうか
      */
-    initializeAWS() {
+    async saveReviewToAPI(reviewData) {
         // AWS_CONFIGが定義されていない、またはS3アップロードが無効の場合
         if (typeof AWS_CONFIG === 'undefined' || !AWS_CONFIG.enableS3Upload) {
-            console.log('S3アップロード機能は無効です（localStorageのみ使用）');
+            console.log('API保存機能は無効です（localStorageのみ使用）');
             return false;
         }
 
-        // AWS SDKがロードされているか確認
-        if (typeof AWS === 'undefined') {
-            console.error('AWS SDK が読み込まれていません');
+        // APIエンドポイントが設定されているか確認
+        if (!AWS_CONFIG.apiEndpoint) {
+            console.warn('APIエンドポイントが設定されていません');
             return false;
         }
 
         try {
-            // AWS認証情報の設定
-            AWS.config.region = AWS_CONFIG.region;
-            AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-                IdentityPoolId: AWS_CONFIG.identityPoolId
+            const response = await fetch(AWS_CONFIG.apiEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(reviewData)
             });
 
-            // S3クライアントの初期化
-            this.s3 = new AWS.S3({
-                apiVersion: '2006-03-01',
-                params: { Bucket: AWS_CONFIG.bucketName }
-            });
-
-            console.log('AWS SDKの初期化が完了しました');
-            return true;
-        } catch (error) {
-            console.error('AWS SDK初期化エラー:', error);
-            return false;
-        }
-    },
-
-    /**
-     * レビュー結果をS3にアップロード
-     * @param {string} reviewerName - レビュアー名
-     * @param {string} category - カテゴリ
-     */
-    async uploadToS3(reviewerName, category) {
-        // S3が初期化されていない場合は初期化を試みる
-        if (!this.s3) {
-            const initialized = this.initializeAWS();
-            if (!initialized) {
-                console.log('S3アップロードをスキップします');
-                return false;
-            }
-        }
-
-        try {
-            // 該当するレビュー結果をフィルタリング
-            const results = this.filterResults({ reviewerName, category });
-
-            if (results.length === 0) {
-                console.warn('アップロードするデータがありません');
-                return false;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
 
-            // ファイル名を生成（レビュアー名_カテゴリ_タイムスタンプ.json）
-            const timestamp = this.getTimestamp();
-            const filename = `results/${reviewerName}_${category}_${timestamp}.json`;
-
-            // JSONデータを準備
-            const data = JSON.stringify(results, null, 2);
-
-            // S3にアップロード
-            const params = {
-                Key: filename,
-                Body: data,
-                ContentType: 'application/json',
-                Metadata: {
-                    'reviewer': reviewerName,
-                    'category': category,
-                    'count': results.length.toString()
-                }
-            };
-
-            await this.s3.upload(params).promise();
-            console.log('S3にアップロード成功:', filename);
+            const result = await response.json();
+            console.log('APIに保存成功:', result);
             return true;
 
         } catch (error) {
-            console.error('S3アップロードエラー:', error);
-            return false;
-        }
-    },
-
-    /**
-     * すべてのレビュー結果をS3にアップロード
-     */
-    async uploadAllToS3() {
-        if (!this.s3) {
-            const initialized = this.initializeAWS();
-            if (!initialized) {
-                console.log('S3アップロードをスキップします');
-                return false;
-            }
-        }
-
-        try {
-            const results = this.getAllResults();
-
-            if (results.length === 0) {
-                console.warn('アップロードするデータがありません');
-                return false;
-            }
-
-            // ファイル名を生成
-            const timestamp = this.getTimestamp();
-            const filename = `results/all_reviews_${timestamp}.json`;
-
-            // JSONデータを準備
-            const data = JSON.stringify(results, null, 2);
-
-            // S3にアップロード
-            const params = {
-                Key: filename,
-                Body: data,
-                ContentType: 'application/json',
-                Metadata: {
-                    'type': 'all_results',
-                    'count': results.length.toString()
-                }
-            };
-
-            await this.s3.upload(params).promise();
-            console.log('すべてのデータをS3にアップロード成功:', filename);
-            return true;
-
-        } catch (error) {
-            console.error('S3アップロードエラー:', error);
+            console.error('API保存エラー:', error);
+            // エラーでもlocalStorageには保存されているので、falseを返すだけ
             return false;
         }
     }
