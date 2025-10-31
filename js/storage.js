@@ -5,6 +5,8 @@
 
 const StorageManager = {
     STORAGE_KEY: 'food_review_results',
+    PROGRESS_KEY: 'food_review_progress',
+    s3: null, // S3クライアント（初期化後に設定）
 
     /**
      * レビュー結果を保存
@@ -26,8 +28,8 @@ const StorageManager = {
                 category: result.category,
                 question_text: result.questionText,
                 reviewer_name: result.reviewerName,
-                answer: result.answer,
-                correct_answer: result.correctAnswer,
+                answer: result.answer,              // 選択した選択肢のテキスト
+                correct_answer: result.correctAnswer, // 正解の選択肢のテキスト
                 is_correct: result.isCorrect,
                 timestamp: new Date().toISOString(),
                 comment: result.comment || ''
@@ -236,8 +238,8 @@ const StorageManager = {
             'カテゴリ',
             '問題文',
             'レビューア名',
-            '回答インデックス',
-            '正解インデックス',
+            '回答',
+            '正解',
             '正誤',
             'タイムスタンプ',
             'コメント'
@@ -253,8 +255,8 @@ const StorageManager = {
             r.category,
             `"${r.question_text.replace(/"/g, '""')}"`,
             r.reviewer_name,
-            r.answer,
-            r.correct_answer,
+            `"${r.answer.replace(/"/g, '""')}"`,
+            `"${r.correct_answer.replace(/"/g, '""')}"`,
             r.is_correct ? '正解' : '不正解',
             r.timestamp,
             r.comment ? `"${r.comment.replace(/"/g, '""')}"` : ''
@@ -335,6 +337,215 @@ const StorageManager = {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return result;
+    },
+
+    /**
+     * 進捗を保存
+     * @param {string} reviewerName - レビュアー名
+     * @param {string} category - カテゴリ
+     * @param {number} questionIndex - 現在の問題インデックス
+     */
+    saveProgress(reviewerName, category, questionIndex) {
+        try {
+            const progressData = this.getAllProgress();
+            const key = `${reviewerName}__${category}`;
+            progressData[key] = {
+                reviewerName,
+                category,
+                questionIndex,
+                timestamp: new Date().toISOString()
+            };
+            localStorage.setItem(this.PROGRESS_KEY, JSON.stringify(progressData));
+            console.log('進捗を保存しました:', key, questionIndex);
+        } catch (error) {
+            console.error('進捗保存エラー:', error);
+        }
+    },
+
+    /**
+     * 進捗を取得
+     * @param {string} reviewerName - レビュアー名
+     * @param {string} category - カテゴリ
+     * @returns {Object|null} 進捗データ（なければnull）
+     */
+    getProgress(reviewerName, category) {
+        try {
+            const progressData = this.getAllProgress();
+            const key = `${reviewerName}__${category}`;
+            return progressData[key] || null;
+        } catch (error) {
+            console.error('進捗取得エラー:', error);
+            return null;
+        }
+    },
+
+    /**
+     * すべての進捗を取得
+     * @returns {Object} 進捗データのオブジェクト
+     */
+    getAllProgress() {
+        try {
+            const data = localStorage.getItem(this.PROGRESS_KEY);
+            return data ? JSON.parse(data) : {};
+        } catch (error) {
+            console.error('進捗読み込みエラー:', error);
+            return {};
+        }
+    },
+
+    /**
+     * 進捗を削除
+     * @param {string} reviewerName - レビュアー名
+     * @param {string} category - カテゴリ
+     */
+    clearProgress(reviewerName, category) {
+        try {
+            const progressData = this.getAllProgress();
+            const key = `${reviewerName}__${category}`;
+            delete progressData[key];
+            localStorage.setItem(this.PROGRESS_KEY, JSON.stringify(progressData));
+            console.log('進捗を削除しました:', key);
+        } catch (error) {
+            console.error('進捗削除エラー:', error);
+        }
+    },
+
+    /**
+     * AWS SDKを初期化
+     */
+    initializeAWS() {
+        // AWS_CONFIGが定義されていない、またはS3アップロードが無効の場合
+        if (typeof AWS_CONFIG === 'undefined' || !AWS_CONFIG.enableS3Upload) {
+            console.log('S3アップロード機能は無効です（localStorageのみ使用）');
+            return false;
+        }
+
+        // AWS SDKがロードされているか確認
+        if (typeof AWS === 'undefined') {
+            console.error('AWS SDK が読み込まれていません');
+            return false;
+        }
+
+        try {
+            // AWS認証情報の設定
+            AWS.config.region = AWS_CONFIG.region;
+            AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+                IdentityPoolId: AWS_CONFIG.identityPoolId
+            });
+
+            // S3クライアントの初期化
+            this.s3 = new AWS.S3({
+                apiVersion: '2006-03-01',
+                params: { Bucket: AWS_CONFIG.bucketName }
+            });
+
+            console.log('AWS SDKの初期化が完了しました');
+            return true;
+        } catch (error) {
+            console.error('AWS SDK初期化エラー:', error);
+            return false;
+        }
+    },
+
+    /**
+     * レビュー結果をS3にアップロード
+     * @param {string} reviewerName - レビュアー名
+     * @param {string} category - カテゴリ
+     */
+    async uploadToS3(reviewerName, category) {
+        // S3が初期化されていない場合は初期化を試みる
+        if (!this.s3) {
+            const initialized = this.initializeAWS();
+            if (!initialized) {
+                console.log('S3アップロードをスキップします');
+                return false;
+            }
+        }
+
+        try {
+            // 該当するレビュー結果をフィルタリング
+            const results = this.filterResults({ reviewerName, category });
+
+            if (results.length === 0) {
+                console.warn('アップロードするデータがありません');
+                return false;
+            }
+
+            // ファイル名を生成（レビュアー名_カテゴリ_タイムスタンプ.json）
+            const timestamp = this.getTimestamp();
+            const filename = `results/${reviewerName}_${category}_${timestamp}.json`;
+
+            // JSONデータを準備
+            const data = JSON.stringify(results, null, 2);
+
+            // S3にアップロード
+            const params = {
+                Key: filename,
+                Body: data,
+                ContentType: 'application/json',
+                Metadata: {
+                    'reviewer': reviewerName,
+                    'category': category,
+                    'count': results.length.toString()
+                }
+            };
+
+            await this.s3.upload(params).promise();
+            console.log('S3にアップロード成功:', filename);
+            return true;
+
+        } catch (error) {
+            console.error('S3アップロードエラー:', error);
+            return false;
+        }
+    },
+
+    /**
+     * すべてのレビュー結果をS3にアップロード
+     */
+    async uploadAllToS3() {
+        if (!this.s3) {
+            const initialized = this.initializeAWS();
+            if (!initialized) {
+                console.log('S3アップロードをスキップします');
+                return false;
+            }
+        }
+
+        try {
+            const results = this.getAllResults();
+
+            if (results.length === 0) {
+                console.warn('アップロードするデータがありません');
+                return false;
+            }
+
+            // ファイル名を生成
+            const timestamp = this.getTimestamp();
+            const filename = `results/all_reviews_${timestamp}.json`;
+
+            // JSONデータを準備
+            const data = JSON.stringify(results, null, 2);
+
+            // S3にアップロード
+            const params = {
+                Key: filename,
+                Body: data,
+                ContentType: 'application/json',
+                Metadata: {
+                    'type': 'all_results',
+                    'count': results.length.toString()
+                }
+            };
+
+            await this.s3.upload(params).promise();
+            console.log('すべてのデータをS3にアップロード成功:', filename);
+            return true;
+
+        } catch (error) {
+            console.error('S3アップロードエラー:', error);
+            return false;
+        }
     }
 };
 

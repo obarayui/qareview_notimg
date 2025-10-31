@@ -48,6 +48,7 @@
         </main>
     </div>
 
+    <script src="js/storage.js"></script>
     <script>
         const QUESTIONS_PATH = 'food_quiz/questions.json';
 
@@ -80,6 +81,21 @@
             }
 
             const reviewerName = document.getElementById('reviewer-name').value.trim();
+
+            // 進捗があるかチェック
+            const progress = StorageManager.getProgress(reviewerName, category);
+
+            if (progress && progress.questionIndex >= 0) {
+                const nextQuestion = progress.questionIndex + 1;
+                const message = `前回の続きがあります。\n\n問題 ${nextQuestion} / ${questionCount} から再開しますか？\n\n「OK」を押すと続きから、「キャンセル」を押すと最初から開始します。`;
+
+                const resume = window.confirm(message);
+
+                if (!resume) {
+                    // 最初から開始する場合は進捗をクリア
+                    StorageManager.clearProgress(reviewerName, category);
+                }
+            }
 
             // localStorageに保存
             localStorage.setItem('current_reviewer', reviewerName);

@@ -85,7 +85,15 @@ const QuizApp = {
 
             // 問題はシャッフルしない（順番通り）
             this.questions = filteredQuestions;
-            this.currentIndex = 0;
+
+            // 進捗があればそこから開始、なければ0から
+            const progress = StorageManager.getProgress(this.reviewerName, this.category);
+            if (progress && progress.questionIndex >= 0 && progress.questionIndex < this.questions.length) {
+                this.currentIndex = progress.questionIndex;
+                console.log('進捗から再開:', this.currentIndex);
+            } else {
+                this.currentIndex = 0;
+            }
 
             // 問題数の表示
             document.getElementById('total-questions').textContent = this.questions.length;
@@ -247,11 +255,14 @@ const QuizApp = {
             category: question.category,
             questionText: question.question,
             reviewerName: this.reviewerName,
-            answer: this.selectedAnswer,
-            correctAnswer: this.correctAnswerIndex,
+            answer: selectedText,        // 選択した選択肢のテキスト
+            correctAnswer: correctText,  // 正解の選択肢のテキスト
             isCorrect: isCorrect,
             comment: '' // コメントは後で入力
         });
+
+        // 進捗を保存
+        StorageManager.saveProgress(this.reviewerName, this.category, this.currentIndex);
 
         // 結果表示
         this.showResult(isCorrect, selectedText, correctText);
@@ -353,6 +364,8 @@ const QuizApp = {
 
         if (this.currentIndex < this.questions.length - 1) {
             this.currentIndex++;
+            // 進捗を保存
+            StorageManager.saveProgress(this.reviewerName, this.category, this.currentIndex);
             this.showQuestion();
         }
     },
@@ -360,11 +373,24 @@ const QuizApp = {
     /**
      * レビュー完了
      */
-    completeReview() {
+    async completeReview() {
         // コメントを保存
         if (this.currentReviewId) {
             const comment = document.getElementById('comment-input').value.trim();
             StorageManager.updateComment(this.currentReviewId, comment);
+        }
+
+        // 進捗を削除（レビュー完了）
+        StorageManager.clearProgress(this.reviewerName, this.category);
+
+        // S3にアップロード（非同期）
+        try {
+            const uploaded = await StorageManager.uploadToS3(this.reviewerName, this.category);
+            if (uploaded) {
+                console.log('レビュー結果をS3にバックアップしました');
+            }
+        } catch (error) {
+            console.error('S3アップロードエラー（継続します）:', error);
         }
 
         const stats = StorageManager.getStatistics();

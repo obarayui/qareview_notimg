@@ -6,7 +6,9 @@
 
 - 🍽️ **食べ物特化**: スイーツ、料理、グルメなど食に関する108問のクイズ
 - ✅ **即座のフィードバック**: 回答後すぐに正誤判定と解説
+- 💾 **進捗保存**: レビュアーごと・カテゴリごとに途中から再開可能
 - 📊 **結果記録**: 回答履歴をブラウザに自動保存
+- ☁️ **S3バックアップ**: AWS S3への自動バックアップ対応（オプション）
 - 📈 **統計分析**: カテゴリ別・レビューアー別の正解率を表示
 - 📥 **エクスポート**: JSON/CSV形式でデータをダウンロード可能
 - 🎨 **モダンなUI**: レスポンシブデザインで快適な操作感
@@ -32,6 +34,28 @@ open http://localhost:8000
 1. リポジトリの Settings → Pages
 2. Source: `main`ブランチ、`/ (root)`を選択
 3. 公開URLにアクセス
+
+**詳細な手順は [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) を参照してください。**
+
+## AWS S3連携（オプション）
+
+レビュー結果をAWS S3に自動バックアップできます。
+
+### クイックセットアップ
+
+1. AWS設定ファイルを作成:
+   ```bash
+   cp js/aws-config.example.js js/aws-config.js
+   ```
+
+2. `js/aws-config.js`を編集して、以下を設定:
+   - `identityPoolId`: Cognito Identity Pool ID
+   - `bucketName`: S3バケット名
+   - `enableS3Upload`: `true`に設定
+
+3. AWS環境の構築方法は [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) を参照
+
+**注意**: `js/aws-config.js`は`.gitignore`に含まれています。Gitにコミットしないでください。
 
 ## 使い方
 
@@ -77,18 +101,22 @@ StorageManager.clearAll();
 
 ```
 qareview_notimg/
-├── index.html              # ホーム画面
-├── review.html             # レビュー画面
+├── index.html                    # ホーム画面
+├── review.html                   # レビュー画面
+├── DEPLOYMENT_GUIDE.md           # デプロイメントガイド（GitHub Pages & AWS S3）
+├── README.md                     # このファイル
+├── .gitignore                    # Git除外設定
 ├── css/
-│   └── style.css          # スタイルシート
+│   └── style.css                # スタイルシート
 ├── js/
-│   ├── app.js             # メインロジック
-│   ├── github.js          # データ取得
-│   └── storage.js         # データ保存・統計
-├── food_quiz/             # 問題セット
-│   └── questions.json     # 食べ物クイズデータ（108問）
-├── Claude_food_review.md  # プロジェクト仕様書
-└── README.md              # このファイル
+│   ├── app.js                   # メインロジック
+│   ├── github.js                # データ取得
+│   ├── storage.js               # データ保存・統計・S3アップロード
+│   ├── aws-config.example.js    # AWS設定テンプレート
+│   └── aws-config.js            # AWS設定（.gitignoreで除外）
+├── food_quiz/                   # 問題セット
+│   └── questions.json           # 食べ物クイズデータ（108問）
+└── Claude_food_review.md        # プロジェクト仕様書
 ```
 
 ## 技術スタック
@@ -97,6 +125,10 @@ qareview_notimg/
 - **CSS3**: レスポンシブデザイン、モダンなUI
 - **JavaScript (Vanilla ES6+)**: フレームワークなし、軽量高速
 - **localStorage API**: ブラウザ内でのデータ永続化
+- **AWS SDK for JavaScript**: S3へのデータアップロード（オプション）
+- **AWS Services** (オプション):
+  - S3: データストレージ
+  - Cognito Identity Pool: 匿名認証
 
 ## ブラウザ要件
 
