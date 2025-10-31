@@ -9,15 +9,14 @@
 <body>
     <div class="container">
         <header class="app-header">
-            <h1>🍽️ 食べ物クイズレビュー</h1>
-            <p class="subtitle">食に関するクイズに挑戦しよう！</p>
+            <h1>🍽️ SakuraQA foodレビュー</h1>
         </header>
 
         <main class="home-content">
             <section class="input-section">
-                <h2>レビューアー情報</h2>
+                <h2>レビュアー情報</h2>
                 <div class="form-group">
-                    <label for="reviewer-name">レビューアー名 <span class="required">*</span></label>
+                    <label for="reviewer-name">レビュアー名 <span class="required">*</span></label>
                     <input
                         type="text"
                         id="reviewer-name"
@@ -31,7 +30,7 @@
 
             <section class="quiz-set-section">
                 <h2>カテゴリを選択</h2>
-                <p class="section-description">学習したいカテゴリを選んでください</p>
+                <p class="section-description">レビューするカテゴリを選んでください</p>
 
                 <div id="loading-categories" class="loading-small">
                     <div class="spinner-small"></div>
@@ -59,13 +58,13 @@
             'デフォルト': '🍽️'
         };
 
-        // レビューアー名のバリデーション
+        // レビュアー名のバリデーション
         function validateReviewerName() {
             const reviewerName = document.getElementById('reviewer-name').value.trim();
             const errorEl = document.getElementById('name-error');
 
             if (!reviewerName) {
-                errorEl.textContent = 'レビューアー名を入力してください';
+                errorEl.textContent = 'レビュアー名を入力してください';
                 return false;
             }
 
@@ -151,7 +150,7 @@
 
         // イベントリスナーの設定
         document.addEventListener('DOMContentLoaded', () => {
-            // レビューアー名の入力でエラーをクリア
+            // レビュアー名の入力でエラーをクリア
             document.getElementById('reviewer-name').addEventListener('input', () => {
                 document.getElementById('name-error').textContent = '';
             });
