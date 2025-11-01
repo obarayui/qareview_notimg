@@ -63,13 +63,6 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 **合計: 108問**
 
-カテゴリ別内訳：
-- 食（一般）
-- スイーツ
-- 日本の食文化（歴史）
-- 日本の食文化（現代）
-- その他の食関連カテゴリ
-
 ### データ形式
 
 各問題は以下の形式で保存されています：
@@ -94,29 +87,13 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 **重要**: 正解は常に`choice`配列の**最初の要素（インデックス0）**です。
 
-### アクセス方法
-
-```javascript
-// GitHubから直接読み込み
-fetch('https://raw.githubusercontent.com/obarayui/qareview_notimg/main/food_quiz/questions.json')
-  .then(response => response.json())
-  .then(data => console.log(data));
-```
-
-アプリケーション内では`js/github.js`がこの処理を担当しています。
-
 ---
 
 ## レビューの流れ
 
 ### 1. レビュー開始
 
-1. **ホーム画面**（`index.html`）にアクセス
-2. **レビューアー名**を入力
-3. **カテゴリ**を選択（例: 「食」）
-4. 「レビュー開始」ボタンをクリック
-
-→ `review.html`に自動遷移
+アプリケーションのURLにアクセスして、レビューアー名とカテゴリを選択します。
 
 ### 2. 問題に回答
 
