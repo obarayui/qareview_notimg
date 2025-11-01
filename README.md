@@ -1,197 +1,421 @@
-# 食べ物クイズレビューアプリケーション
+# SakuraQA 食べ物レビューツール - 運用ガイド
 
-食べ物に関する4選択肢クイズに回答し、結果を記録・分析できるWebアプリケーションです。
+このドキュメントは、SakuraQAの食べ物カテゴリレビューツールの実際の運用方法とデータの流れを説明します。
 
-## 特徴
+---
 
-- 🍽️ **食べ物特化**: スイーツ、料理、グルメなど食に関する108問のクイズ
-- ✅ **即座のフィードバック**: 回答後すぐに正誤判定と解説
-- 💾 **進捗保存**: レビュアーごと・カテゴリごとに途中から再開可能
-- 📊 **結果記録**: 回答履歴をブラウザに自動保存
-- ☁️ **S3バックアップ**: AWS S3への自動バックアップ対応（オプション）
-- 📈 **統計分析**: カテゴリ別・レビューアー別の正解率を表示
-- 📥 **エクスポート**: JSON/CSV形式でデータをダウンロード可能
-- 🎨 **モダンなUI**: レスポンシブデザインで快適な操作感
+## 📋 目次
 
-## クイックスタート
+1. [プロジェクト概要](#プロジェクト概要)
+2. [アクセス方法](#アクセス方法)
+3. [データセット](#データセット)
+4. [レビューの流れ](#レビューの流れ)
+5. [データの保存先](#データの保存先)
+6. [システムアーキテクチャ](#システムアーキテクチャ)
+7. [データ分析](#データ分析)
 
-### 方法1: ローカルで実行
+---
 
-```bash
-# リポジトリをクローン
-git clone https://github.com/obarayui/qareview_notimg.git
-cd qareview_notimg
+## プロジェクト概要
 
-# HTTPサーバーを起動
-python3 -m http.server 8000
+**SakuraQA 食べ物レビューツール**は、食べ物に関する4択クイズ（108問）をレビューし、その結果をAWS S3に保存するWebアプリケーションです。
 
-# ブラウザで開く
-open http://localhost:8000
-```
+### 主な機能
 
-### 方法2: GitHub Pagesで公開
+- ✅ 食べ物カテゴリの問題をレビュー
+- 💾 1問ごとにリアルタイムでS3に保存
+- 📊 レビュー結果の統計表示
+- 📝 各問題へのコメント機能
+- 🔄 途中保存と再開機能
 
-1. リポジトリの Settings → Pages
-2. Source: `main`ブランチ、`/ (root)`を選択
-3. 公開URLにアクセス
+---
 
-**詳細な手順は [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) を参照してください。**
+## アクセス方法
 
-## AWS S3連携（オプション）
+### 本番環境（GitHub Pages）
 
-レビュー結果をAWS S3に自動バックアップできます。
+**URL**: https://obarayui.github.io/qareview_notimg/
 
-### クイックセットアップ
+ブラウザで上記URLにアクセスすると、レビューツールが利用できます。
 
-1. AWS設定ファイルを作成:
-   ```bash
-   cp js/aws-config.example.js js/aws-config.js
-   ```
+### ローカル環境
 
-2. `js/aws-config.js`を編集して、以下を設定:
-   - `identityPoolId`: Cognito Identity Pool ID
-   - `bucketName`: S3バケット名
-   - `enableS3Upload`: `true`に設定
-
-3. AWS環境の構築方法は [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) を参照
-
-**注意**: `js/aws-config.js`は`.gitignore`に含まれています。Gitにコミットしないでください。
-
-## 使い方
-
-### 1. レビュー開始
-
-1. ホーム画面でレビューアー名を入力
-2. 問題セット「食べ物クイズ」を選択
-3. レビュー画面に自動遷移
-
-### 2. 回答
-
-1. 4つの選択肢から1つを選択
-2. 必要に応じてコメントを入力
-3. 「回答を提出」をクリック
-4. 正誤判定と正解を確認
-5. 「次の問題へ」で続行
-
-### 3. レビュー完了
-
-- 全108問に回答すると自動的に統計が表示されます
-- 結果はブラウザのlocalStorageに保存されます
-
-### 4. データのエクスポート
-
-ブラウザのコンソール（F12）で以下を実行:
-
-```javascript
-// JSON形式でエクスポート
-StorageManager.exportToJSON();
-
-// CSV形式でエクスポート（Excel対応）
-StorageManager.exportToCSV();
-
-// 統計情報を表示
-const stats = StorageManager.getStatistics();
-console.log(stats);
-
-// すべてのデータを削除
-StorageManager.clearAll();
-```
-
-## ファイル構成
-
-```
-qareview_notimg/
-├── index.html                    # ホーム画面
-├── review.html                   # レビュー画面
-├── DEPLOYMENT_GUIDE.md           # デプロイメントガイド（GitHub Pages & AWS S3）
-├── README.md                     # このファイル
-├── .gitignore                    # Git除外設定
-├── css/
-│   └── style.css                # スタイルシート
-├── js/
-│   ├── app.js                   # メインロジック
-│   ├── github.js                # データ取得
-│   ├── storage.js               # データ保存・統計・S3アップロード
-│   ├── aws-config.example.js    # AWS設定テンプレート
-│   └── aws-config.js            # AWS設定（.gitignoreで除外）
-├── food_quiz/                   # 問題セット
-│   └── questions.json           # 食べ物クイズデータ（108問）
-└── Claude_food_review.md        # プロジェクト仕様書
-```
-
-## 技術スタック
-
-- **HTML5**: セマンティックなマークアップ
-- **CSS3**: レスポンシブデザイン、モダンなUI
-- **JavaScript (Vanilla ES6+)**: フレームワークなし、軽量高速
-- **localStorage API**: ブラウザ内でのデータ永続化
-- **AWS SDK for JavaScript**: S3へのデータアップロード（オプション）
-- **AWS Services** (オプション):
-  - S3: データストレージ
-  - Cognito Identity Pool: 匿名認証
-
-## ブラウザ要件
-
-- モダンブラウザ（Chrome, Firefox, Safari, Edge）
-- JavaScript有効
-- localStorage有効
-- Fetch API対応
-
-## トラブルシューティング
-
-### 問題: JSONが読み込めない
-
-**原因**: file://プロトコルを使用している
-**解決**: HTTPサーバーを起動してアクセス
+開発・テスト用にローカルで実行する場合：
 
 ```bash
-# Python3
-python3 -m http.server 8000
-
-# Node.js
-npx http-server -p 8000
+cd /Users/obarayui/Git/qareview_notimg
+python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
-### 問題: データが保存されない
+その後、http://127.0.0.1:8000 にアクセス
 
-**原因**: localStorageが無効化されている
-**解決**: ブラウザの設定でlocalStorageを有効化、またはシークレットモードを解除
+---
 
-## カスタマイズ
+## データセット
 
-### 独自の問題セットを追加
+### 問題ファイルの場所
 
-1. `questions.json`形式で問題データを作成
-2. `food_quiz/`フォルダに配置
-3. `index.html`に問題セットカードを追加
+```
+/food_quiz/questions.json
+```
 
-**questions.json形式:**
+### 問題数
+
+**合計: 108問**
+
+### データ形式
+
+各問題は以下の形式で保存されています：
+
 ```json
 {
   "questionID": "Q001",
-  "keyword": "キーワード",
-  "category": "カテゴリ",
-  "question": "質問文",
+  "keyword": "寿司",
+  "category": "食",
+  "question": "寿司の発祥地として知られる都市はどこですか？",
   "choice": [
-    "選択肢1(正解)",
-    "選択肢2",
-    "選択肢3",
-    "選択肢4"
+    "東京",        // インデックス0（正解）
+    "大阪",
+    "京都",
+    "名古屋"
   ],
   "year": "2024",
-  "reference_url": "https://example.com",
-  "authored_by": "作成者名"
+  "reference_url": "https://example.com/sushi-history",
+  "authored_by": "SakuraQA"
 }
 ```
 
-**注**: 正解は常に`choice`配列の**最初の要素（インデックス0）**です。
+**重要**: 正解は常に`choice`配列の**最初の要素（インデックス0）**です。
 
-## ライセンス
+---
 
-MIT License
+## レビューの流れ
 
-## 作成者
+### 1. レビュー開始
 
-- オリジナル設計: Claude (Anthropic)
-- 実装: Claude Code
-- データ提供: SakuraQA food問題セット
+アプリケーションのURLにアクセスして、レビューアー名とカテゴリを選択します。
+
+### 2. 問題に回答
+
+1. **問題文**と**4つの選択肢**が表示される
+2. 1つの選択肢を選択
+3. **「回答を提出」**ボタンをクリック
+
+### 3. 結果の表示
+
+- 正誤判定が即座に表示される
+- 正解の選択肢がハイライトされる
+- 選択した選択肢（不正解の場合）もハイライトされる
+
+### 4. コメント入力（オプション）
+
+- 問題についてのコメントを入力可能
+- コメントは後でS3に保存される
+
+### 5. 次の問題へ
+
+- **「次の問題へ」**ボタンで次の問題に進む
+- 最後の問題では**「レビュー完了」**ボタンが表示される
+
+### 6. レビュー完了
+
+- 正解数・正解率などの統計が表示される
+- 自動的にホーム画面に戻る
+
+---
+
+## データの保存先
+
+### ローカル保存（localStorage）
+
+すべてのレビュー結果は、まずブラウザの`localStorage`に保存されます。
+
+**キー**: `food_review_results`
+
+**形式**: JSON配列
+
+### AWS S3への保存
+
+レビュー結果は1問回答するごとに、AWS S3に自動保存されます。
+
+#### 保存先
+
+**S3バケット**: `sakuraqa-food-review-results`
+
+**ファイルパス**: `review.json`
+
+**リージョン**: `ap-northeast-1`（東京）
+
+#### アクセス方法
+
+```
+AWS Console
+→ S3
+→ sakuraqa-food-review-results
+→ review.json
+```
+
+### データ形式
+
+S3の`review.json`は以下の形式で保存されています：
+
+```json
+[
+  {
+    "review_id": "review_1730369876543_abc12345",
+    "question_id": "Q001",
+    "question_set": "食",
+    "question_index": 0,
+    "keyword": "寿司",
+    "category": "食",
+    "question_text": "寿司の発祥地として知られる都市はどこですか？",
+    "reviewer_name": "田中太郎",
+    "answer": "東京",
+    "correct_answer": "東京",
+    "is_correct": true,
+    "timestamp": "2025-10-31T12:34:56.789Z",
+    "comment": "知っていました"
+  },
+  {
+    "review_id": "review_1730369901234_def67890",
+    "question_id": "Q002",
+    "question_set": "食",
+    "question_index": 1,
+    "keyword": "味噌汁",
+    "category": "食",
+    "question_text": "味噌汁の具材で最も一般的なものは？",
+    "reviewer_name": "田中太郎",
+    "answer": "豆腐とわかめ",
+    "correct_answer": "豆腐とわかめ",
+    "is_correct": true,
+    "timestamp": "2025-10-31T12:35:23.456Z",
+    "comment": ""
+  }
+]
+```
+
+### データ構造の詳細
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `review_id` | String | レビューの一意識別子（タイムスタンプ + ランダム文字列） |
+| `question_id` | String | 問題ID（例: Q001） |
+| `question_set` | String | 問題セット名（例: 食） |
+| `question_index` | Number | 問題のインデックス番号（0から開始） |
+| `keyword` | String | 問題のキーワード |
+| `category` | String | カテゴリ名 |
+| `question_text` | String | 問題文 |
+| `reviewer_name` | String | レビューアー名 |
+| `answer` | String | 選択した回答 |
+| `correct_answer` | String | 正解の選択肢 |
+| `is_correct` | Boolean | 正誤判定（true=正解、false=不正解） |
+| `timestamp` | String | 回答日時（ISO 8601形式） |
+| `comment` | String | コメント（オプション） |
+
+### データの追記方式
+
+- **1問回答するごとに**、Lambda関数が`review.json`を読み込み、新しいレビューデータを追加してS3に保存
+- 同じ`review_id`が既に存在する場合は、そのレビューを更新（コメント追加など）
+- 複数のレビューアーのデータが同一ファイルに蓄積される
+
+---
+
+## システムアーキテクチャ
+
+### データフロー図
+
+```
+┌─────────────────────────────────────┐
+│  ブラウザ（GitHub Pages）            │
+│  https://obarayui.github.io/        │
+│        qareview_notimg/             │
+└─────────────┬───────────────────────┘
+              │
+              │ 1. 問題データを取得
+              ↓
+┌─────────────────────────────────────┐
+│  GitHub Repository（Raw Content）    │
+│  food_quiz/questions.json           │
+└─────────────────────────────────────┘
+
+              ↓ ユーザーが回答
+
+┌─────────────────────────────────────┐
+│  localStorage                        │
+│  food_review_results                │
+└─────────────┬───────────────────────┘
+              │
+              │ 2. 1問ごとにAPI送信
+              ↓
+┌─────────────────────────────────────┐
+│  API Gateway (HTTP API)             │
+│  POST /review                       │
+└─────────────┬───────────────────────┘
+              │
+              │ 3. Lambda関数を呼び出し
+              ↓
+┌─────────────────────────────────────┐
+│  AWS Lambda                         │
+│  SaveReviewToS3                     │
+│  - review.jsonを取得                │
+│  - 新規データを追加                 │
+│  - S3に保存                         │
+└─────────────┬───────────────────────┘
+              │
+              │ 4. データを保存
+              ↓
+┌─────────────────────────────────────┐
+│  AWS S3                             │
+│  Bucket: sakuraqa-food-review-      │
+│          results                    │
+│  File: review.json                  │
+└─────────────────────────────────────┘
+```
+
+### 使用しているAWSサービス
+
+1. **API Gateway (HTTP API)**
+   - エンドポイント: `https://ogllpkngp1.execute-api.ap-northeast-1.amazonaws.com/review`
+   - メソッド: POST
+   - CORS有効化
+
+2. **AWS Lambda**
+   - 関数名: `SaveReviewToS3`
+   - ランタイム: Node.js 20.x
+   - 役割: S3への読み書き処理
+
+3. **AWS S3**
+   - バケット名: `sakuraqa-food-review-results`
+   - ファイル: `review.json`
+   - アクセス: Lambda経由のみ（プライベート）
+
+4. **CloudWatch Logs**
+   - Lambda関数の実行ログを記録
+   - エラー監視・デバッグに使用
+
+---
+
+## データ分析
+
+### S3からデータをダウンロード
+
+1. **AWS Console** → **S3**
+2. バケット `sakuraqa-food-review-results` を開く
+3. `review.json` をクリック
+4. **ダウンロード** ボタンをクリック
+
+### データの分析方法
+
+#### 1. ブラウザのコンソールで統計を表示
+
+```javascript
+// 開発者ツール（F12）のConsoleで実行
+const stats = StorageManager.getStatistics();
+console.log(stats);
+```
+
+出力例：
+```javascript
+{
+  total: 108,
+  correct: 95,
+  incorrect: 13,
+  accuracy: 87.96,
+  byCategory: {
+    "食": { total: 50, correct: 45, incorrect: 5, accuracy: 90.00 },
+    "スイーツ": { total: 30, correct: 25, incorrect: 5, accuracy: 83.33 }
+  },
+  byReviewer: {
+    "田中太郎": { total: 108, correct: 95, incorrect: 13, accuracy: 87.96 }
+  }
+}
+```
+
+#### 2. JSON/CSVでエクスポート
+
+```javascript
+// JSON形式でダウンロード
+StorageManager.exportToJSON();
+
+// CSV形式でダウンロード（Excel対応）
+StorageManager.exportToCSV();
+```
+
+#### 3. Python/Pandas で分析
+
+```python
+import pandas as pd
+import json
+
+# S3からダウンロードしたreview.jsonを読み込み
+with open('review.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+
+# DataFrameに変換
+df = pd.DataFrame(data)
+
+# 正解率を計算
+accuracy = df['is_correct'].mean() * 100
+print(f"全体の正解率: {accuracy:.2f}%")
+
+# カテゴリ別の正解率
+category_stats = df.groupby('category')['is_correct'].agg(['count', 'sum', 'mean'])
+print(category_stats)
+
+# レビューアー別の正解率
+reviewer_stats = df.groupby('reviewer_name')['is_correct'].agg(['count', 'sum', 'mean'])
+print(reviewer_stats)
+```
+
+#### 4. Amazon Athena で分析（高度）
+
+S3に保存されたデータを、Amazon Athenaを使ってSQLで分析することも可能です。
+
+詳細は[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)の「次のステップ」セクションを参照してください。
+
+---
+
+## トラブルシューティング
+
+### データが保存されない
+
+**確認事項**:
+1. ブラウザのコンソール（F12）でエラーを確認
+2. API GatewayのCORS設定を確認
+3. Lambda関数のCloudWatch Logsを確認
+
+**詳細**: [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)のトラブルシューティングセクション
+
+### S3のreview.jsonが見つからない
+
+**原因**: まだ1問も回答していない
+
+**解決**: 少なくとも1問回答すると`review.json`が作成されます
+
+### データが重複して保存される
+
+**原因**: ネットワークエラーで再試行した場合
+
+**解決**: Lambda関数は`review_id`で重複をチェックしているため、通常は重複しません
+
+---
+
+## まとめ
+
+このレビューツールは、以下の流れでデータを管理します：
+
+1. **questions.json**（GitHub）から問題を取得
+2. ユーザーがレビューを実行
+3. **localStorage**（ブラウザ）に即座に保存
+4. **API Gateway → Lambda → S3**の経路で`review.json`に追記保存
+5. S3の`review.json`で全レビューデータを一元管理
+
+すべてのデータは1つの`review.json`ファイルにJSON配列形式で保存され、後から分析や統計処理が可能です。
+
+---
+
+## 関連ドキュメント
+
+- [README.md](./README.md) - プロジェクト全体の説明
+- [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - AWS環境の構築手順
+- [Claude_food_review.md](./Claude_food_review.md) - プロジェクト仕様書
