@@ -40,10 +40,6 @@ const QuizApp = {
      * UIの初期化
      */
     setupUI() {
-        // ヘッダー情報の設定
-        document.getElementById('quiz-set-name').textContent = this.category;
-        document.getElementById('reviewer-name').textContent = this.reviewerName;
-
         // イベントリスナーの設定
         document.getElementById('submit-btn').addEventListener('click', () => this.submitAnswer());
         document.getElementById('next-btn').addEventListener('click', () => this.nextQuestion());
