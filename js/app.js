@@ -114,37 +114,8 @@ const QuizApp = {
     showQuestion() {
         const question = this.questions[this.currentIndex];
 
-        // 問題情報の表示
-        document.getElementById('question-id').textContent = question.questionID;
+        // 問題文の表示
         document.getElementById('question-text').textContent = question.question;
-        document.getElementById('question-category').textContent = question.category;
-
-        // キーワードの表示（あれば）
-        const keywordEl = document.getElementById('question-keyword');
-        if (question.keyword) {
-            keywordEl.textContent = question.keyword;
-            keywordEl.style.display = 'inline-block';
-        } else {
-            keywordEl.style.display = 'none';
-        }
-
-        // 年代の表示（あれば）
-        const yearEl = document.getElementById('question-year');
-        if (question.year) {
-            yearEl.textContent = question.year;
-            yearEl.style.display = 'inline-block';
-        } else {
-            yearEl.style.display = 'none';
-        }
-
-        // 参考URLの表示（あれば）
-        const referenceEl = document.getElementById('question-reference');
-        if (question.reference_url) {
-            document.getElementById('reference-link').href = question.reference_url;
-            referenceEl.style.display = 'block';
-        } else {
-            referenceEl.style.display = 'none';
-        }
 
         // 進捗の更新
         document.getElementById('current-question').textContent = this.currentIndex + 1;
