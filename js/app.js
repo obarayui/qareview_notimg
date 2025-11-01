@@ -418,7 +418,7 @@ const QuizApp = {
      */
     goHome(confirm = true) {
         if (confirm) {
-            const userConfirm = window.confirm('ホームに戻りますか？レビューの進捗は保存されていますが、途中から再開することはできません。');
+            const userConfirm = window.confirm('ホームに戻りますか？\n（進捗は保存されます）');
             if (!userConfirm) {
                 return;
             }
